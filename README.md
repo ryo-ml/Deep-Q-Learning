@@ -30,6 +30,7 @@ conda activate atari
 │   └── config_double_dqn.yaml
 ├── environment.yaml
 └── src/
+    ├── eval.py
     ├── main.py
     ├── agents/
     │   ├── agent.py              # BaseAgent (ABC)
