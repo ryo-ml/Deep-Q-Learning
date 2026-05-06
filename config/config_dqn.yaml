@@ -1,0 +1,37 @@
+seed: 42
+
+env:
+  name: ALE/Breakout-v5 # currently not used
+
+agent:
+  epsilon_start: 1.0
+  epsilon_end: 0.1
+  epsilon_annealing: 500000 # paper: 1000000
+  gamma: 0.99
+
+model:
+  loss: mse
+
+optimizer:
+  type: rmsprop
+  lr: 0.00025
+  alpha: 0.95
+  eps: 0.01
+
+replay_buffer:
+  capacity: 500000 # paper: 1000000
+  batch_size: 32
+
+train:
+  total_steps: 1000000 # paper: 50000000
+  n_fixed_states: 1000
+  warmup_steps: 50000
+  log_interval: 5000
+  valid_interval: 10000 # paper: 1000000
+  save_interval: 50000
+
+eval:
+  episode: 10
+  checkpoint: steps_1000000.pth
+
+device: mps

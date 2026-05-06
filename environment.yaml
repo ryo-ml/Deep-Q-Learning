@@ -1,0 +1,23 @@
+name: atari
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.11
+  - jupyter
+  - numpy
+  - matplotlib
+  - pandas
+  - scikit-learn
+  - seaborn
+  - tqdm
+  - pyyaml
+  - pytorch
+  - torchvision
+  - pip
+  - pip:
+    - "gymnasium[atari]"
+    - "gymnasium[classic_control]"
+    - "gymnasium[other]"
+    - "autorom[accept-rom-license]"
+    - ale-py
