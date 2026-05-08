@@ -7,8 +7,7 @@ from .logger import get_logger
 
 logger = get_logger(__name__)
 
-def set_seed(cfg: dict[str, Any]) -> None:
-    seed = cfg['seed']
+def set_seed(seed: int) -> None:
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
