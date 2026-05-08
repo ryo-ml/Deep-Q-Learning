@@ -8,9 +8,9 @@ env = gym.make("ALE/Breakout-v5", render_mode='rgb_array')
 obs, info = env.reset()
 
 mapping = {
-    (ord(" "),): 1,  # スペースキーで発射
-    (ord("d"),): 2,  # Dキーで右
-    (ord("a"),): 3,  # Aキーで左
+    (ord(" "),): 1,  # shoot with Space
+    (ord("d"),): 2,  # move right with D
+    (ord("a"),): 3,  # move left with A
 }
 
 play(env, keys_to_action=mapping, fps=15)

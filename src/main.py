@@ -1,5 +1,6 @@
 from pathlib import Path
 
+from .utils.seed import set_seed
 from .utils.config import load_config
 from .env.breakout import make_env
 from .agents.dqn_agent import DQNAgent
@@ -12,6 +13,8 @@ CFG_DIR = BASE_DIR / 'config'
 
 def main() -> None:
     cfg = load_config(CFG_DIR / 'config_double_dqn.yaml')
+
+    set_seed(cfg['seed'])
 
     env = make_env(
         render_mode='rgb_array',

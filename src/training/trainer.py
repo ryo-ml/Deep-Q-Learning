@@ -28,7 +28,7 @@ class Trainer:
 
     def warmup(self) -> None:
         fixed_states = []
-        obs, _ = self.train_env.reset()
+        obs, _ = self.train_env.reset(seed=self.cfg['seed'])
         while self.agent.replay_buffer.size < self.cfg['train']['warmup_steps']:
             action = self.train_env.action_space.sample() # random action
             next_obs, reward, terminated, truncated, _ = self.train_env.step(action)
