@@ -1,6 +1,6 @@
 # Atari DQN Implementation
 
-A PyTorch implementation of deep reinforcement learning on Atari Breakout. The following algorithms are implemented:
+A PyTorch implementation of deep reinforcement learning on [Atari Breakout](https://gymnasium.farama.org/v0.26.3/environments/atari/breakout/). The following algorithms are implemented:
 
 - **DQNAgent** - Original DQN ([Mnih et al., 2013](https://arxiv.org/abs/1312.5602))
 - **TargetDQNAgent** - DQN with Target Network ([Mnih et al., 2015](https://www.nature.com/articles/nature14236))
