@@ -7,9 +7,9 @@ from ..models.dqn import DQN
 from ..buffer.replay_buffer import ReplayBuffer
 
 class DQNAgent(BaseAgent):
-    '''
+    """
     Single Q network WITHOUT target network
-    '''
+    """
     def __init__(
         self,
         cfg: dict[str, Any],

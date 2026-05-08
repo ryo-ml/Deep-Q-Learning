@@ -17,7 +17,8 @@ class Trainer:
         train_env: gym.Env,
         agent: BaseAgent,
         cfg: dict[str, Any],
-    ):
+        verbose: bool = True,
+    ) -> None:
         self.train_env = train_env
         self.agent = agent
         self.cfg = cfg
@@ -26,7 +27,30 @@ class Trainer:
         self.q_values = []
         self.loss = []
 
+        # logging
+        logger.info(' Initialization '.center(40, '='))
+
+        logger.info(f"Seed: {cfg['seed']}")
+        logger.info(f"Agent: {agent.__class__.__name__}")
+        logger.info(f"Device: {cfg['device']}")
+        
+        if verbose:
+            logger.info(f"Total steps: {cfg['train']['total_steps']:,} ({cfg['train']['total_steps'] / 1e6:.1f}M)")
+            logger.info(f"Warmup steps: {cfg['train']['warmup_steps']}")
+            logger.info(f"Replay buffer capacity : {cfg['replay_buffer']['capacity']} ({cfg['replay_buffer']['capacity'] / 1e6:.1f}M)")
+            logger.info(f"Batch size: {cfg['replay_buffer']['batch_size']}")
+            logger.info(f"lr: {cfg['optimizer']['lr']} ({cfg['optimizer']['lr']:.2e})")
+            logger.info(f"Update interval: {cfg['train']['update_interval']}")
+            logger.info(f"Epsilon: {cfg['agent']['epsilon_start']} -> {cfg['agent']['epsilon_end']} over {cfg['agent']['epsilon_annealing']:,} ({cfg['agent']['epsilon_annealing'] / 1e6:.1f}M) steps")
+
+        logger.info(' Initialization done '.center(40, '='))
+
     def warmup(self) -> None:
+        """
+        Fills replay buffer with transitions using random actions.
+        """
+        logger.info('Warmup started')
+
         fixed_states = []
         obs, _ = self.train_env.reset(seed=self.cfg['seed'])
         while self.agent.replay_buffer.size < self.cfg['train']['warmup_steps']:
@@ -45,6 +69,7 @@ class Trainer:
                 obs = next_obs
 
         self.fixed_states = torch.tensor(np.array(fixed_states), dtype=torch.uint8).to(self.cfg['device'])
+
         logger.info('Warmup done!')
  
     def train(self) -> None:

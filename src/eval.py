@@ -20,7 +20,12 @@ def main() -> None:
         record_video=False,
     )
     agent = DQNAgent(cfg, env.action_space.n)
-    trainer = Trainer(env, agent, cfg)
+    trainer = Trainer(
+        env,
+        agent,
+        cfg,
+        verbose=False,
+    )
     trainer.load(CKPT_DIR / cfg['eval']['checkpoint'])
 
     for _ in range(cfg['eval']['episode']):

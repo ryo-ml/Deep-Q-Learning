@@ -2,9 +2,9 @@ import torch
 from torch import nn
 
 class DQN(nn.Module):
-    '''
+    """
     2015 Nature DQN
-    '''
+    """
     def __init__(self, n_actions: int) -> None:
         super().__init__()
         self.relu = nn.ReLU()

@@ -21,7 +21,12 @@ def main() -> None:
         record_video=False,
     )
     agent = DoubleDQNAgent(cfg, env.action_space.n)
-    trainer = Trainer(env, agent, cfg)
+    trainer = Trainer(
+        env,
+        agent,
+        cfg,
+        verbose=True,
+    )
     trainer.train()
 
 if __name__ == '__main__':
