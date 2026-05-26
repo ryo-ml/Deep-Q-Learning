@@ -8,6 +8,8 @@ import gymnasium as gym
 
 from ..env.breakout import make_env
 from ..agents.dqn_agent import BaseAgent
+from ..utils.visualize import plot_loss, plot_q_value
+
 from ..utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -26,6 +28,12 @@ class Trainer:
 
         self.steps = 0
         self.history = []
+        # History structure:
+        # loss and q_value can be omitted
+        # self.history = [
+        #     {'steps': 1000, 'loss': 0.1234, 'q_value': 0.5678},
+        #     ...
+        # ]
 
         # logging
         logger.info(' Initialization '.center(40, '='))
@@ -137,6 +145,25 @@ class Trainer:
                 # save
                 if self.steps % self.cfg['train']['save_interval'] == 0:
                     self.save()
+
+        logger.info(f'Training has ended')
+
+        self.plot_results()
+
+    def plot_results(self):
+        BASE_DIR = Path(__file__).resolve().parent
+        FIG_DIR = BASE_DIR / 'figures'
+        FIG_DIR.mkdir(exist_ok=True)
+
+        # plot loss and q values
+        loss_steps = [h['steps'] for h in self.history if 'loss' in h]
+        loss = [h['loss'] for h in self.history if 'loss' in h]
+        q_value_steps = [h['steps'] for h in self.history if 'q_value' in h]
+        q_values = [h['q_value'] for h in self.history if 'q_value' in h]
+        plot_loss(loss_steps, loss, FIG_DIR / f'loss_{self.steps}.svg')
+        plot_q_value(q_value_steps, q_values, FIG_DIR / f'q_value_{self.steps}.svg')
+
+        logger.info(f'Figures saved under {FIG_DIR}')
 
     def valid(self, render_mode: str = 'rgb_array') -> None:
         val_env = make_env(
