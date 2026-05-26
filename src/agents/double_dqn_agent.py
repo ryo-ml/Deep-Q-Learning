@@ -8,7 +8,7 @@ from ..buffer.replay_buffer import ReplayBuffer
 
 class DoubleDQNAgent(BaseAgent):
     """
-    Double DQN 
+    Double DQN
     """
     def __init__(
         self,

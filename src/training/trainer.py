@@ -1,5 +1,6 @@
 from typing import Any
 from pathlib import Path
+from collections import deque
 from tqdm import tqdm
 import numpy as np
 import torch
@@ -24,8 +25,7 @@ class Trainer:
         self.cfg = cfg
 
         self.steps = 0
-        self.q_values = []
-        self.loss = []
+        self.history = []
 
         # logging
         logger.info(' Initialization '.center(40, '='))
@@ -33,7 +33,7 @@ class Trainer:
         logger.info(f"Seed: {cfg['seed']}")
         logger.info(f"Agent: {agent.__class__.__name__}")
         logger.info(f"Device: {cfg['device']}")
-        
+
         if verbose:
             logger.info(f"Total steps: {cfg['train']['total_steps']:,} ({cfg['train']['total_steps'] / 1e6:.1f}M)")
             logger.info(f"Warmup steps: {cfg['train']['warmup_steps']}")
@@ -53,38 +53,56 @@ class Trainer:
 
         fixed_states = []
         obs, _ = self.train_env.reset(seed=self.cfg['seed'])
+        fixed_states_deque = deque([obs.copy() for _ in range(4)], maxlen=4)
+
         while self.agent.replay_buffer.size < self.cfg['train']['warmup_steps']:
             action = self.train_env.action_space.sample() # random action
             next_obs, reward, terminated, truncated, _ = self.train_env.step(action)
             done = terminated or truncated
 
             if len(fixed_states) < self.cfg['train']['n_fixed_states']:
-                fixed_states.append(obs)
+                fixed_states.append(np.stack(fixed_states_deque, axis=0))
 
-            self.agent.replay_buffer.store(obs, action, reward, next_obs, done)
+            self.agent.replay_buffer.store(obs, action, reward, done)
+            fixed_states_deque.append(next_obs)
 
             if done:
                 obs, _ = self.train_env.reset()
+                fixed_states_deque = deque([obs.copy() for _ in range(4)], maxlen=4)
             else:
                 obs = next_obs
 
         self.fixed_states = torch.tensor(np.array(fixed_states), dtype=torch.uint8).to(self.cfg['device'])
 
         logger.info('Warmup done!')
- 
+
+    def _log_metric(self, steps: int, **metrics):
+        """
+        Updates `self.history`
+        """
+        log_dict = {'steps': steps}
+        log_dict.update(metrics)
+        self.history.append(log_dict)
+
     def train(self) -> None:
         self.warmup()
+        loss_interval = []
 
         pbar = tqdm(total=self.cfg['train']['total_steps'])
+
         while self.steps < self.cfg['train']['total_steps']:
             obs, _ = self.train_env.reset()
+            frame_deque = deque([obs.copy() for _ in range(4)], maxlen=4)
             done = False
+
             while not done and self.steps < self.cfg['train']['total_steps']:
-                obs_tensor = torch.tensor(obs, dtype=torch.uint8).unsqueeze(0).to(self.cfg['device'])
+                stacked_obs = np.stack(frame_deque, axis=0)
+                obs_tensor = torch.tensor(stacked_obs, dtype=torch.uint8).unsqueeze(0).to(self.cfg['device'])
                 action = self.agent.select_action(obs_tensor)
                 next_obs, reward, terminated, truncated, _ = self.train_env.step(action)
                 done = terminated or truncated
-                self.agent.replay_buffer.store(obs, action, reward, next_obs, done)
+                self.agent.replay_buffer.store(obs, action, reward, done)
+                frame_deque.append(next_obs)
                 obs = next_obs
 
                 assert self.agent.replay_buffer.size >= self.cfg['replay_buffer']['batch_size'], \
@@ -93,20 +111,22 @@ class Trainer:
                 self.steps += 1
                 if self.steps % self.cfg['train']['update_interval'] == 0:
                     loss_batch = self.agent.update()
-                    self.loss.append(loss_batch)
+                    loss_interval.append(loss_batch)
 
                 pbar.update(1)
                 pbar.set_description(f'Steps: {self.steps}')
 
                 # log
                 if self.steps % self.cfg['train']['log_interval'] == 0:
-                    _n_loss = self.cfg['train']['log_interval'] // self.cfg['train']['update_interval']
-                    loss_mean = np.mean(self.loss[-_n_loss:])
+                    loss_mean = np.mean(loss_interval)
+                    loss_interval = []
+
                     # Q values for fixed set
                     with torch.no_grad():
                         q_values = torch.max(self.agent.model(self.fixed_states), dim=-1).values # (n_fixed_states,)
                         q_values_mean = q_values.mean().item()
-                        self.q_values.append(q_values_mean)
+
+                    self._log_metric(self.steps, loss=loss_mean, q_value=q_values_mean) # update history
 
                     logger.info(f'Step {self.steps} | Q: {q_values_mean:.4f} | Loss: {loss_mean:.4f} | Epsilon: {self.agent.epsilon:.4f}')
 
@@ -125,11 +145,14 @@ class Trainer:
             video_folder=Path(__file__).resolve().parent.parent.parent / 'videos',
             name_prefix=f'{self.steps}',
         )
+
         try:
             obs, _ = val_env.reset()
+            frame_deque = deque([obs.copy() for _ in range(4)], maxlen=4)
             done = False
             while not done:
-                obs_tensor = torch.tensor(obs, dtype=torch.uint8).unsqueeze(0).to(self.cfg['device'])
+                stacked_obs = np.stack(frame_deque, axis=0)
+                obs_tensor = torch.tensor(stacked_obs, dtype=torch.uint8).unsqueeze(0).to(self.cfg['device'])
 
                 if np.random.uniform() < 0.05:
                     action = int(val_env.action_space.sample())
@@ -140,6 +163,7 @@ class Trainer:
 
                 next_obs, _, terminated, truncated, _ = val_env.step(action)
                 done = terminated or truncated
+                frame_deque.append(next_obs)
                 obs = next_obs
         finally:
             val_env.close()
@@ -147,8 +171,7 @@ class Trainer:
     def save(self) -> None:
         d = {
             'steps': self.steps,
-            'q_values': self.q_values,
-            'loss': self.loss,
+            'history': self.history,
             'agent': self.agent.state_dict(),
         }
 
@@ -161,8 +184,7 @@ class Trainer:
     def load(self, path: Path):
         d = torch.load(path, map_location=self.cfg['device'])
         self.steps = d['steps']
-        self.q_values = d['q_values']
-        self.loss = d['loss']
+        self.history = d['history']
         self.agent.load_state_dict(d['agent'])
 
         logger.info(f'Checkpoint loaded from {path} at step {self.steps}')

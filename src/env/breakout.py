@@ -1,6 +1,6 @@
 from pathlib import Path
 import gymnasium as gym
-from gymnasium.wrappers import GrayscaleObservation, ResizeObservation, TransformObservation, FrameStackObservation, RecordVideo
+from gymnasium.wrappers import GrayscaleObservation, ResizeObservation, TransformObservation, RecordVideo
 import ale_py
 
 import numpy as np
@@ -21,7 +21,6 @@ def make_env(
         lambda obs: obs[18:102, :],
         gym.spaces.Box(low=0, high=255, shape=(84, 84), dtype=np.uint8)
     )
-    env = FrameStackObservation(env, 4)
 
     if render_mode == 'rgb_array' and record_video:
         if video_folder is None:

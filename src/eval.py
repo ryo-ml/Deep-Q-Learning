@@ -1,3 +1,4 @@
+import argparse
 from pathlib import Path
 
 from .utils.seed import set_seed
@@ -11,7 +12,11 @@ CFG_DIR = BASE_DIR / 'config'
 CKPT_DIR = BASE_DIR / 'checkpoints'
 
 def main() -> None:
-    cfg = load_config(CFG_DIR / 'config_double_dqn.yaml')
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-c', '--config', required=True, help='path to yaml configuration file')
+    args = parser.parse_args()
+
+    cfg = load_config(CFG_DIR / args.config)
 
     set_seed(cfg['seed'])
 
