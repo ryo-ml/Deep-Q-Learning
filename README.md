@@ -54,13 +54,13 @@ conda activate atari
 ## Training
 
 ```bash
-python -m src.main
+python -m src.main --config <config yaml>
 ```
 
 ## Evaluation
 
 ```bash
-python -m src.eval
+python -m src.eval --config <config yaml>
 ```
 
 The checkpoint to evaluate can be specified via `eval.checkpoint` in the config file.
@@ -117,6 +117,7 @@ device: mps
 |------|---------|
 | `checkpoints/` | Model weights and optimizer state |
 | `videos/` | Recorded evaluation episodes |
+| `figures/` | Loss and q value plot figures |
 
 ## References
 
