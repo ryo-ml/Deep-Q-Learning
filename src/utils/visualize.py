@@ -11,6 +11,7 @@ def plot_loss(steps: list, loss: list, path: Path) -> None:
     ax.set_title('Loss')
     ax.set_xlabel('steps')
     ax.set_ylabel('loss')
+    ax.grid(True)
 
     fig.savefig(path, dpi=400)
 
@@ -23,6 +24,7 @@ def plot_q_value(steps: list, q_value: list, path: Path) -> None:
     ax.set_title('Q value')
     ax.set_xlabel('steps')
     ax.set_ylabel('Q')
+    ax.grid(True)
 
     fig.savefig(path, dpi=400)
 

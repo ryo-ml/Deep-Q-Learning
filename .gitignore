@@ -1,9 +1,13 @@
+# outputs
 checkpoints/
 videos/
+figures/
 
+# python
 __pycache__
 
-
+# vscode
 .vscode
 
+# os
 .DS_Store

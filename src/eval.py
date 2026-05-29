@@ -8,15 +8,13 @@ from .agents.dqn_agent import DQNAgent
 from .training.trainer import Trainer
 
 BASE_DIR = Path(__file__).resolve().parent.parent
-CFG_DIR = BASE_DIR / 'config'
-CKPT_DIR = BASE_DIR / 'checkpoints'
 
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument('-c', '--config', required=True, help='path to yaml configuration file')
     args = parser.parse_args()
 
-    cfg = load_config(CFG_DIR / args.config)
+    cfg = load_config(BASE_DIR / 'config' / args.config)
 
     set_seed(cfg['seed'])
 
@@ -31,7 +29,7 @@ def main() -> None:
         cfg,
         verbose=False,
     )
-    trainer.load(CKPT_DIR / cfg['eval']['checkpoint'])
+    trainer.load(BASE_DIR / 'checkpoints' / cfg['eval']['run_id'] / cfg['eval']['checkpoint_name'])
 
     for _ in range(cfg['eval']['episode']):
         trainer.valid(

@@ -106,7 +106,8 @@ train:
 
 eval:
   episode: 10
-  checkpoint: steps_2000000.pth
+  run_id: ALE_Breakout-v5_DoubleDQNAgent_20260529_100006
+  checkpoint_name: steps_10000000.pth
 
 device: mps
 ```
