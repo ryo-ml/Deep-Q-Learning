@@ -33,8 +33,8 @@ train:
   target_update_interval: 10000 # paper: 10000
 
 eval:
-  episode: 3
-  run_id: ALE_Breakout-v5_DoubleDQNAgent_20260529_100006
-  checkpoint_name: steps_10000000.pth
+  episode: 1
+  run_id: ALE_Breakout-v5_DoubleDQNAgent_20260530_164333
+  checkpoint_name: steps_50000000.pth
 
-device: cuda
+device: mps
