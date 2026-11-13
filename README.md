@@ -8,17 +8,16 @@ A PyTorch implementation of deep reinforcement learning on [Atari Breakout](http
 
 ## Requirements
 
-- Python 3.11
-- PyTorch
-- Gymnasium
-- ale-py
+- [uv](https://docs.astral.sh/uv/)
+- Python 3.11 (installed automatically by uv)
 
 ## Setup
 
 ```bash
-conda env create -f environment.yaml
-conda activate atari
+uv sync
 ```
+
+Dependencies are defined in `pyproject.toml` and pinned in `uv.lock`.
 
 ## Project Structure
 
@@ -27,7 +26,8 @@ conda activate atari
 ├── config/
 │   ├── config.yaml               # base config (paper settings)
 │   └── experiment/               # presets reproducing past runs
-├── environment.yaml
+├── pyproject.toml
+├── uv.lock
 ├── train.py                      # training entry point
 ├── eval.py                       # evaluation entry point
 ├── scripts/
@@ -59,27 +59,27 @@ Configuration is managed with [Hydra](https://hydra.cc/).
 
 ```bash
 # base config (Double DQN, paper settings)
-python train.py
+uv run train.py
 
 # choose an agent
-python train.py agent.name=dqn
+uv run train.py agent.name=dqn
 
 # override any value from the CLI
-python train.py agent.name=target_dqn train.total_steps=2000000
+uv run train.py agent.name=target_dqn train.total_steps=2000000
 
 # use a preset that reproduces a past run
-python train.py +experiment=target_dqn
+uv run train.py +experiment=target_dqn
 
 # run several agents in one go (multirun)
-python train.py -m agent.name=dqn,target_dqn,double_dqn
+uv run train.py -m agent.name=dqn,target_dqn,double_dqn
 ```
 
 ## Evaluation
 
 ```bash
-python eval.py agent.name=dqn eval.run_id=<run_id> eval.checkpoint_name=steps_10000000.pth
+uv run eval.py agent.name=dqn eval.run_id=<run_id> eval.checkpoint_name=steps_10000000.pth
 # or, with a preset
-python eval.py +experiment=dqn
+uv run eval.py +experiment=dqn
 ```
 
 `agent.name` must match the agent used for training.
@@ -91,7 +91,7 @@ python eval.py +experiment=dqn
 | `config/config.yaml` | Base config. `agent.name` selects `dqn` / `target_dqn` / `double_dqn`. Differences from the original paper are noted in comments |
 | `config/experiment/*.yaml` | Presets reproducing past runs (overrides on top of the base config) |
 
-To print the resolved config without running: `python train.py --cfg job`
+To print the resolved config without running: `uv run train.py --cfg job`
 
 ## Outputs
 
