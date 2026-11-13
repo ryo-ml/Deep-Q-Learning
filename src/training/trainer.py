@@ -1,9 +1,9 @@
-from typing import Any
 from pathlib import Path
 from collections import deque
 from tqdm import tqdm
 import numpy as np
 import torch
+from omegaconf import DictConfig
 import gymnasium as gym
 
 from ..env.breakout import make_env
@@ -19,7 +19,7 @@ class Trainer:
         self,
         train_env: gym.Env,
         agent: BaseAgent,
-        cfg: dict[str, Any],
+        cfg: DictConfig,
         output_dir: Path,
         verbose: bool = True,
     ) -> None:
@@ -40,19 +40,19 @@ class Trainer:
         # logging
         logger.info(' Initialization '.center(40, '='))
 
-        logger.info(f"Seed: {cfg['seed']}")
+        logger.info(f"Seed: {cfg.seed}")
         logger.info(f"Agent: {agent.__class__.__name__}")
-        logger.info(f"Device: {cfg['device']}")
+        logger.info(f"Device: {cfg.device}")
         logger.info(f"Output dir: {self.output_dir}")
 
         if verbose:
-            logger.info(f"Total steps: {cfg['train']['total_steps']:,} ({cfg['train']['total_steps'] / 1e6:.1f}M)")
-            logger.info(f"Warmup steps: {cfg['train']['warmup_steps']}")
-            logger.info(f"Replay buffer capacity : {cfg['replay_buffer']['capacity']} ({cfg['replay_buffer']['capacity'] / 1e6:.1f}M)")
-            logger.info(f"Batch size: {cfg['replay_buffer']['batch_size']}")
-            logger.info(f"lr: {cfg['optimizer']['lr']} ({cfg['optimizer']['lr']:.2e})")
-            logger.info(f"Update interval: {cfg['train']['update_interval']}")
-            logger.info(f"Epsilon: {cfg['agent']['epsilon_start']} -> {cfg['agent']['epsilon_end']} over {cfg['agent']['epsilon_annealing']:,} ({cfg['agent']['epsilon_annealing'] / 1e6:.1f}M) steps")
+            logger.info(f"Total steps: {cfg.train.total_steps:,} ({cfg.train.total_steps / 1e6:.1f}M)")
+            logger.info(f"Warmup steps: {cfg.train.warmup_steps}")
+            logger.info(f"Replay buffer capacity : {cfg.replay_buffer.capacity} ({cfg.replay_buffer.capacity / 1e6:.1f}M)")
+            logger.info(f"Batch size: {cfg.replay_buffer.batch_size}")
+            logger.info(f"lr: {cfg.optimizer.lr} ({cfg.optimizer.lr:.2e})")
+            logger.info(f"Update interval: {cfg.train.update_interval}")
+            logger.info(f"Epsilon: {cfg.agent.epsilon_start} -> {cfg.agent.epsilon_end} over {cfg.agent.epsilon_annealing:,} ({cfg.agent.epsilon_annealing / 1e6:.1f}M) steps")
 
         logger.info(' Initialization done '.center(40, '='))
 
@@ -63,15 +63,15 @@ class Trainer:
         logger.info('Warmup started')
 
         fixed_states = []
-        obs, _ = self.train_env.reset(seed=self.cfg['seed'])
+        obs, _ = self.train_env.reset(seed=self.cfg.seed)
         fixed_states_deque = deque([obs.copy() for _ in range(4)], maxlen=4)
 
-        while self.agent.replay_buffer.size < self.cfg['train']['warmup_steps']:
+        while self.agent.replay_buffer.size < self.cfg.train.warmup_steps:
             action = self.train_env.action_space.sample() # random action
             next_obs, reward, terminated, truncated, _ = self.train_env.step(action)
             done = terminated or truncated
 
-            if len(fixed_states) < self.cfg['train']['n_fixed_states']:
+            if len(fixed_states) < self.cfg.train.n_fixed_states:
                 fixed_states.append(np.stack(fixed_states_deque, axis=0))
 
             self.agent.replay_buffer.store(obs, action, reward, done)
@@ -83,7 +83,7 @@ class Trainer:
             else:
                 obs = next_obs
 
-        self.fixed_states = torch.tensor(np.array(fixed_states), dtype=torch.uint8).to(self.cfg['device'])
+        self.fixed_states = torch.tensor(np.array(fixed_states), dtype=torch.uint8).to(self.cfg.device)
 
         logger.info('Warmup done!')
 
@@ -99,16 +99,16 @@ class Trainer:
         self.warmup()
         loss_interval = []
 
-        pbar = tqdm(total=self.cfg['train']['total_steps'])
+        pbar = tqdm(total=self.cfg.train.total_steps)
 
-        while self.steps < self.cfg['train']['total_steps']:
+        while self.steps < self.cfg.train.total_steps:
             obs, _ = self.train_env.reset()
             frame_deque = deque([obs.copy() for _ in range(4)], maxlen=4)
             done = False
 
-            while not done and self.steps < self.cfg['train']['total_steps']:
+            while not done and self.steps < self.cfg.train.total_steps:
                 stacked_obs = np.stack(frame_deque, axis=0)
-                obs_tensor = torch.tensor(stacked_obs, dtype=torch.uint8).unsqueeze(0).to(self.cfg['device'])
+                obs_tensor = torch.tensor(stacked_obs, dtype=torch.uint8).unsqueeze(0).to(self.cfg.device)
                 action = self.agent.select_action(obs_tensor)
                 next_obs, reward, terminated, truncated, _ = self.train_env.step(action)
                 done = terminated or truncated
@@ -116,11 +116,11 @@ class Trainer:
                 frame_deque.append(next_obs)
                 obs = next_obs
 
-                assert self.agent.replay_buffer.size >= self.cfg['replay_buffer']['batch_size'], \
-                    f'Replay buffer size {self.agent.replay_buffer.size} is less than batch size {self.cfg["replay_buffer"]["batch_size"]}'
+                assert self.agent.replay_buffer.size >= self.cfg.replay_buffer.batch_size, \
+                    f'Replay buffer size {self.agent.replay_buffer.size} is less than batch size {self.cfg.replay_buffer.batch_size}'
 
                 self.steps += 1
-                if self.steps % self.cfg['train']['update_interval'] == 0:
+                if self.steps % self.cfg.train.update_interval == 0:
                     loss_batch = self.agent.update()
                     loss_interval.append(loss_batch)
 
@@ -128,7 +128,7 @@ class Trainer:
                 pbar.set_description(f'Steps: {self.steps}')
 
                 # log
-                if self.steps % self.cfg['train']['log_interval'] == 0:
+                if self.steps % self.cfg.train.log_interval == 0:
                     loss_mean = np.mean(loss_interval)
                     loss_interval = []
 
@@ -142,11 +142,11 @@ class Trainer:
                     logger.info(f'Step {self.steps} | Q: {q_values_mean:.4f} | Loss: {loss_mean:.4f} | Epsilon: {self.agent.epsilon:.4f}')
 
                 # valid
-                if self.steps % self.cfg['train']['valid_interval'] == 0:
+                if self.steps % self.cfg.train.valid_interval == 0:
                     self.valid()
 
                 # save
-                if self.steps % self.cfg['train']['save_interval'] == 0:
+                if self.steps % self.cfg.train.save_interval == 0:
                     self.save()
 
         logger.info(f'Training has ended')
@@ -182,7 +182,7 @@ class Trainer:
             done = False
             while not done:
                 stacked_obs = np.stack(frame_deque, axis=0)
-                obs_tensor = torch.tensor(stacked_obs, dtype=torch.uint8).unsqueeze(0).to(self.cfg['device'])
+                obs_tensor = torch.tensor(stacked_obs, dtype=torch.uint8).unsqueeze(0).to(self.cfg.device)
 
                 if np.random.uniform() < 0.05:
                     action = int(val_env.action_space.sample())
@@ -212,7 +212,7 @@ class Trainer:
         logger.info(f'Checkpoint saved: {save_path}')
 
     def load(self, path: Path):
-        d = torch.load(path, map_location=self.cfg['device'], weights_only=False)
+        d = torch.load(path, map_location=self.cfg.device, weights_only=False)
         self.steps = d['steps']
         self.history = d['history']
         self.agent.load_state_dict(d['agent'])

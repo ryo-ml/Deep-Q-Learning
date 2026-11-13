@@ -1,6 +1,6 @@
-from typing import Any
 import numpy as np
 import torch
+from omegaconf import DictConfig
 
 from .agent import BaseAgent
 from ..models.dqn import DQN
@@ -12,27 +12,27 @@ class DoubleDQNAgent(BaseAgent):
     """
     def __init__(
         self,
-        cfg: dict[str, Any],
+        cfg: DictConfig,
         n_actions: int,
     ) -> None:
         self.cfg = cfg
         self.n_actions = n_actions
-        self.online_model = DQN(n_actions).to(cfg['device'])
-        self.target_model = DQN(n_actions).to(cfg['device'])
+        self.online_model = DQN(n_actions).to(cfg.device)
+        self.target_model = DQN(n_actions).to(cfg.device)
         self.target_model.load_state_dict(self.online_model.state_dict())
 
         self.replay_buffer = ReplayBuffer(
-            cfg['replay_buffer']['capacity'],
-            cfg['replay_buffer']['batch_size'],
-            cfg['device'],
+            cfg.replay_buffer.capacity,
+            cfg.replay_buffer.batch_size,
+            cfg.device,
         )
 
         optim_type = {
             'adam': torch.optim.Adam,
             'rmsprop': torch.optim.RMSprop,
         }
-        optim_cfg = {k: v for k, v in cfg['optimizer'].items() if k != 'type'}
-        self.optim = optim_type[cfg['optimizer']['type']](
+        optim_cfg = {k: v for k, v in cfg.optimizer.items() if k != 'type'}
+        self.optim = optim_type[cfg.optimizer.type](
             self.online_model.parameters(),
             **optim_cfg,
         )
@@ -40,12 +40,12 @@ class DoubleDQNAgent(BaseAgent):
         loss_type = {
             'mse': torch.nn.MSELoss,
         }
-        self.loss_func = loss_type[cfg['model']['loss']]()
+        self.loss_func = loss_type[cfg.model.loss]()
 
-        self.gamma = cfg['agent']['gamma']
-        self.epsilon_start = cfg['agent']['epsilon_start']
-        self.epsilon_end = cfg['agent']['epsilon_end']
-        self.epsilon_annealing = cfg['agent']['epsilon_annealing']
+        self.gamma = cfg.agent.gamma
+        self.epsilon_start = cfg.agent.epsilon_start
+        self.epsilon_end = cfg.agent.epsilon_end
+        self.epsilon_annealing = cfg.agent.epsilon_annealing
 
         self.env_steps = 0
         self.update_steps = 0
@@ -98,7 +98,7 @@ class DoubleDQNAgent(BaseAgent):
         self.update_steps += 1
 
         # copy parameters of online network to those of target network
-        if self.update_steps % self.cfg['train']['target_update_interval'] == 0:
+        if self.update_steps % self.cfg.train.target_update_interval == 0:
             self.target_model.load_state_dict(self.online_model.state_dict())
 
         return loss.item()

@@ -40,16 +40,16 @@ def load_train_cfg(run_dir: Path, cfg: DictConfig) -> DictConfig:
 
 @hydra.main(version_base='1.3', config_path='config', config_name='eval')
 def main(cfg: DictConfig) -> None:
-    ckpt, run_dir = resolve_ckpt(Path(cfg['eval']['ckpt']))
+    ckpt, run_dir = resolve_ckpt(Path(cfg.eval.ckpt))
     train_cfg = load_train_cfg(run_dir, cfg)
 
-    set_seed(train_cfg['seed'])
+    set_seed(train_cfg.seed)
 
     env = make_env(
         render_mode='rgb_array',
         record_video=False,
     )
-    agent = get_agent_class(train_cfg['agent']['name'])(train_cfg, env.action_space.n)
+    agent = get_agent_class(train_cfg.agent.name)(train_cfg, env.action_space.n)
     trainer = Trainer(
         env,
         agent,
@@ -59,7 +59,7 @@ def main(cfg: DictConfig) -> None:
     )
     trainer.load(ckpt)
 
-    for _ in range(cfg['eval']['episode']):
+    for _ in range(cfg.eval.episode):
         trainer.valid(
             render_mode='human',
         )
