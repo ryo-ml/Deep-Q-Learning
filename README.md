@@ -25,18 +25,21 @@ conda activate atari
 ```
 .
 ├── config/
-│   ├── config_dqn.yaml
-│   ├── config_target_dqn.yaml
-│   └── config_double_dqn.yaml
+│   ├── config.yaml               # base config (paper settings)
+│   └── experiment/               # presets reproducing past runs
 ├── environment.yaml
+├── train.py                      # training entry point
+├── eval.py                       # evaluation entry point
+├── scripts/
+│   ├── play.py                   # play Breakout with the keyboard
+│   └── random_action.py          # run a random policy
 └── src/
-    ├── eval.py
-    ├── main.py
     ├── agents/
     │   ├── agent.py              # BaseAgent (ABC)
     │   ├── dqn_agent.py          # DQNAgent
     │   ├── target_dqn_agent.py   # TargetDQNAgent
-    │   └── double_dqn_agent.py   # DoubleDQNAgent
+    │   ├── double_dqn_agent.py   # DoubleDQNAgent
+    │   └── registry.py           # agent name -> class
     ├── models/
     │   └── dqn.py                # CNN
     ├── env/
@@ -46,71 +49,49 @@ conda activate atari
     ├── training/
     │   └── trainer.py            # Trainer
     └── utils/
-        ├── config.py
         ├── logger.py
         └── seed.py
 ```
 
 ## Training
 
+Configuration is managed with [Hydra](https://hydra.cc/).
+
 ```bash
-python -m src.main --config <config yaml>
+# base config (Double DQN, paper settings)
+python train.py
+
+# choose an agent
+python train.py agent.name=dqn
+
+# override any value from the CLI
+python train.py agent.name=target_dqn train.total_steps=2000000
+
+# use a preset that reproduces a past run
+python train.py +experiment=target_dqn
+
+# run several agents in one go (multirun)
+python train.py -m agent.name=dqn,target_dqn,double_dqn
 ```
 
 ## Evaluation
 
 ```bash
-python -m src.eval --config <config yaml>
+python eval.py agent.name=dqn eval.run_id=<run_id> eval.checkpoint_name=steps_10000000.pth
+# or, with a preset
+python eval.py +experiment=dqn
 ```
 
-The checkpoint to evaluate can be specified via `eval.checkpoint` in the config file.
+`agent.name` must match the agent used for training.
 
 ## Configuration
 
-Training parameters are configured via yaml files under `config/`. Differences from the original paper are noted in comments.
+| Path | Content |
+|------|---------|
+| `config/config.yaml` | Base config. `agent.name` selects `dqn` / `target_dqn` / `double_dqn`. Differences from the original paper are noted in comments |
+| `config/experiment/*.yaml` | Presets reproducing past runs (overrides on top of the base config) |
 
-```yaml
-seed: 42
-
-env:
-  name: ALE/Breakout-v5 # currently not used
-
-agent:
-  epsilon_start: 1.0
-  epsilon_end: 0.1
-  epsilon_annealing: 100000 # paper: 1000000
-  gamma: 0.99
-
-model:
-  loss: mse
-
-optimizer:
-  type: rmsprop
-  lr: 0.00025
-  alpha: 0.95
-  eps: 0.01
-
-replay_buffer:
-  capacity: 500000 # paper: 1000000
-  batch_size: 32
-
-train:
-  total_steps: 2000000 # paper: 50000000
-  n_fixed_states: 1000
-  warmup_steps: 50000
-  log_interval: 5000
-  valid_interval: 10000 # paper: 1000000
-  save_interval: 50000
-  update_interval: 4
-  target_update_interval: 5000 # paper: 10000
-
-eval:
-  episode: 10
-  run_id: ALE_Breakout-v5_DoubleDQNAgent_20260529_100006
-  checkpoint_name: steps_10000000.pth
-
-device: mps
-```
+To print the resolved config without running: `python train.py --cfg job`
 
 ## Outputs
 
@@ -119,6 +100,7 @@ device: mps
 | `checkpoints/` | Model weights and optimizer state |
 | `videos/` | Recorded evaluation episodes |
 | `figures/` | Loss and q value plot figures |
+| `outputs/`, `multirun/` | Hydra run directories (resolved config, logs) |
 
 ## References
 

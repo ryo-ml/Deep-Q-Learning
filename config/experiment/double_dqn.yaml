@@ -1,0 +1,9 @@
+# @package _global_
+# Settings from the former config_double_dqn.yaml (paper-scale run)
+agent:
+  name: double_dqn
+
+eval:
+  episode: 1
+  run_id: ALE_Breakout-v5_DoubleDQNAgent_20260530_164333
+  checkpoint_name: steps_50000000.pth

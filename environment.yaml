@@ -12,6 +12,7 @@ dependencies:
   - seaborn
   - tqdm
   - pyyaml
+  - hydra-core
   - pytorch
   - torchvision
   - pip

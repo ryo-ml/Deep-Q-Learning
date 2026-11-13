@@ -1,9 +1,11 @@
 seed: 42
+device: mps
 
 env:
   name: ALE/Breakout-v5 # currently not used
 
 agent:
+  name: double_dqn # dqn / target_dqn / double_dqn
   epsilon_start: 1.0
   epsilon_end: 0.1
   epsilon_annealing: 1000000 # paper: 1000000
@@ -30,11 +32,9 @@ train:
   valid_interval: 1000000 # paper: 1000000
   save_interval: 100000
   update_interval: 4
-  target_update_interval: 10000 # paper: 10000
+  target_update_interval: 10000 # paper: 10000 (used by target_dqn / double_dqn only)
 
 eval:
-  episode: 1
-  run_id: ALE_Breakout-v5_DoubleDQNAgent_20260530_164333
-  checkpoint_name: steps_50000000.pth
-
-device: mps
+  episode: 10
+  run_id: ??? # e.g. eval.run_id=ALE_Breakout-v5_DQNAgent_20260529_100006
+  checkpoint_name: ??? # e.g. eval.checkpoint_name=steps_10000000.pth
