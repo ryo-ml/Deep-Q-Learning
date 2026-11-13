@@ -22,16 +22,16 @@ class ReplayBuffer:
         self.device = device
 
     def sample(self) -> dict[str, torch.Tensor]:
+        # sample t such that frames t-3 .. t+1 are all stored and in time order
+        # (high is exclusive in randint)
         if self.size < self.capacity:
-            low = 3
-            high = self.size - 1
+            low = 3                              # t-3 >= 0        (oldest frame)
+            high = self.size - 1                 # t+1 <= size - 1 (newest frame)
         else:
-            low = self.idx + 1
-            high = self.idx + self.capacity - 4
+            low = self.idx + 3                   # t-3 >= idx      (oldest frame)
+            high = self.capacity + self.idx - 1  # t+1 <= idx - 1  (newest frame), wraps around
 
-        idxs = torch.from_numpy(
-            np.random.choice(np.arange(high - low) % self.capacity, self.batch_size, replace=False),
-        ).view(-1, 1)
+        idxs = torch.randint(low, high, (self.batch_size, 1)) % self.capacity
 
         valid_obs_idxs = self._stack_indices(idxs)          # frames t-3 .. t
         valid_next_obs_idxs = self._stack_indices(idxs + 1) # frames t-2 .. t+1
