@@ -8,6 +8,7 @@ import gymnasium as gym
 
 from ..env.breakout import make_env
 from ..agents.dqn_agent import BaseAgent
+from .rollout import run_episode
 from ..utils.visualize import plot_loss, plot_q_value
 
 from ..utils.logger import get_logger
@@ -177,26 +178,10 @@ class Trainer:
         )
 
         try:
-            obs, _ = val_env.reset()
-            frame_deque = deque([obs.copy() for _ in range(4)], maxlen=4)
-            done = False
-            while not done:
-                stacked_obs = np.stack(frame_deque, axis=0)
-                obs_tensor = torch.tensor(stacked_obs, dtype=torch.uint8).unsqueeze(0).to(self.cfg.device)
-
-                if np.random.uniform() < 0.05:
-                    action = int(val_env.action_space.sample())
-                else:
-                    with torch.no_grad():
-                        q_values = self.agent.model(obs_tensor)
-                        action = int(torch.argmax(q_values).item())
-
-                next_obs, _, terminated, truncated, _ = val_env.step(action)
-                done = terminated or truncated
-                frame_deque.append(next_obs)
-                obs = next_obs
+            score = run_episode(self.agent.model, val_env, self.cfg.device)
         finally:
             val_env.close()
+        logger.info(f'Valid score: {score}')
 
     def save(self) -> None:
         d = {
