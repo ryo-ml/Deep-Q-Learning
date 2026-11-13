@@ -1,16 +1,6 @@
-import sys
 import logging
 
-def get_logger(name: str = __name__):
-    logger = logging.getLogger(name)
-    logger.propagate = False
-
-    if not logger.handlers:
-        logger.setLevel(logging.INFO)
-        formatter = logging.Formatter('%(asctime)s [%(name)s] [%(levelname)s] %(message)s', datefmt='%H:%M:%S')
-        
-        handler = logging.StreamHandler(sys.stdout)
-        handler.setFormatter(formatter)
-        logger.addHandler(handler)
-
-    return logger
+def get_logger(name: str = __name__) -> logging.Logger:
+    # Handlers and format are configured by Hydra (hydra.job_logging in config.yaml):
+    # train.py logs to the console and <output_dir>/train.log, eval.py to the console only.
+    return logging.getLogger(name)

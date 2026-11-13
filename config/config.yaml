@@ -34,7 +34,14 @@ train:
   update_interval: 4
   target_update_interval: 10000 # paper: 10000 (used by target_dqn / double_dqn only)
 
-eval:
-  episode: 10
-  run_id: ??? # e.g. eval.run_id=ALE_Breakout-v5_DQNAgent_20260529_100006
-  checkpoint_name: ??? # e.g. eval.checkpoint_name=steps_10000000.pth
+hydra:
+  run:
+    dir: outputs/${agent.name}/${now:%Y-%m-%d_%H-%M-%S}
+  sweep:
+    dir: multirun/${now:%Y-%m-%d_%H-%M-%S}
+    subdir: ${hydra.job.num}_${agent.name}
+  job_logging:
+    formatters:
+      simple:
+        format: '%(asctime)s [%(name)s] [%(levelname)s] %(message)s'
+        datefmt: '%H:%M:%S'

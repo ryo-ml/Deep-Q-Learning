@@ -1,7 +1,6 @@
 from typing import Any
 from pathlib import Path
 from collections import deque
-from datetime import datetime
 from tqdm import tqdm
 import numpy as np
 import torch
@@ -15,19 +14,19 @@ from ..utils.logger import get_logger
 
 logger = get_logger(__name__)
 
-BASE_DIR = Path(__file__).resolve().parent.parent.parent
-
 class Trainer:
     def __init__(
         self,
         train_env: gym.Env,
         agent: BaseAgent,
         cfg: dict[str, Any],
+        output_dir: Path,
         verbose: bool = True,
     ) -> None:
         self.train_env = train_env
         self.agent = agent
         self.cfg = cfg
+        self.output_dir = Path(output_dir)
 
         self.steps = 0
         self.history = []
@@ -38,17 +37,13 @@ class Trainer:
         #     ...
         # ]
 
-        _env_name = self.train_env.spec.id.replace('/', '_')
-        _algorithm =self.agent.__class__.__name__
-        _timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        self.run_id = f'{_env_name}_{_algorithm}_{_timestamp}'
-
         # logging
         logger.info(' Initialization '.center(40, '='))
 
         logger.info(f"Seed: {cfg['seed']}")
         logger.info(f"Agent: {agent.__class__.__name__}")
         logger.info(f"Device: {cfg['device']}")
+        logger.info(f"Output dir: {self.output_dir}")
 
         if verbose:
             logger.info(f"Total steps: {cfg['train']['total_steps']:,} ({cfg['train']['total_steps'] / 1e6:.1f}M)")
@@ -159,8 +154,8 @@ class Trainer:
         self.plot_results()
 
     def plot_results(self):
-        fig_dir = BASE_DIR / 'figures' / self.run_id
-        fig_dir.mkdir(exist_ok=True)
+        fig_dir = self.output_dir / 'figures'
+        fig_dir.mkdir(parents=True, exist_ok=True)
 
         # plot loss and q values
         loss_steps = [h['steps'] for h in self.history if 'loss' in h]
@@ -173,7 +168,7 @@ class Trainer:
         logger.info(f'Figures saved under {fig_dir}')
 
     def valid(self, render_mode: str = 'rgb_array') -> None:
-        video_dir = BASE_DIR / 'videos' / self.run_id
+        video_dir = self.output_dir / 'videos'
         val_env = make_env(
             render_mode=render_mode,
             record_video=render_mode == 'rgb_array',
@@ -210,8 +205,8 @@ class Trainer:
             'agent': self.agent.state_dict(),
         }
 
-        save_dir = BASE_DIR / 'checkpoints' / self.run_id
-        save_dir.mkdir(exist_ok=True)
+        save_dir = self.output_dir / 'checkpoints'
+        save_dir.mkdir(parents=True, exist_ok=True)
         save_path = save_dir / f'steps_{self.steps}.pth'
         torch.save(d, save_path)
         logger.info(f'Checkpoint saved: {save_path}')

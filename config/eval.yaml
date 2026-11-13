@@ -1,0 +1,16 @@
+defaults:
+  - config
+  - override hydra/job_logging: stdout
+  - _self_
+
+eval:
+  # checkpoint file, or a run directory (the latest checkpoint is used)
+  # e.g. eval.ckpt=outputs/double_dqn/2026-11-13_15-00-00
+  ckpt: ???
+  episode: 10
+
+# evaluation only renders to the screen: do not create an output directory
+hydra:
+  run:
+    dir: .
+  output_subdir: null

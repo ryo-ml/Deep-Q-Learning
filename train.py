@@ -1,4 +1,7 @@
+from pathlib import Path
+
 import hydra
+from hydra.core.hydra_config import HydraConfig
 from omegaconf import DictConfig
 
 from src.utils.seed import set_seed
@@ -19,6 +22,7 @@ def main(cfg: DictConfig) -> None:
         env,
         agent,
         cfg,
+        output_dir=Path(HydraConfig.get().runtime.output_dir),
         verbose=True,
     )
     trainer.train()

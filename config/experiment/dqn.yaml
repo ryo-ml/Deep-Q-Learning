@@ -11,7 +11,3 @@ train:
   total_steps: 1000000
   valid_interval: 10000
   save_interval: 50000
-
-eval:
-  run_id: ALE_Breakout-v5_DQNAgent_20260529_100006
-  checkpoint_name: steps_10000000.pth

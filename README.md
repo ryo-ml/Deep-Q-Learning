@@ -24,7 +24,8 @@ Dependencies are defined in `pyproject.toml` and pinned in `uv.lock`.
 ```
 .
 ├── config/
-│   ├── config.yaml               # base config (paper settings)
+│   ├── config.yaml               # base config for training (paper settings)
+│   ├── eval.yaml                 # config for evaluation
 │   └── experiment/               # presets reproducing past runs
 ├── pyproject.toml
 ├── uv.lock
@@ -77,30 +78,46 @@ uv run train.py -m agent.name=dqn,target_dqn,double_dqn
 ## Evaluation
 
 ```bash
-uv run eval.py agent.name=dqn eval.run_id=<run_id> eval.checkpoint_name=steps_10000000.pth
-# or, with a preset
-uv run eval.py +experiment=dqn
+# a run directory: the checkpoint with the largest step count is used
+uv run eval.py eval.ckpt=outputs/double_dqn/2026-11-13_15-00-00
+
+# a specific checkpoint
+uv run eval.py eval.ckpt=outputs/double_dqn/2026-11-13_15-00-00/checkpoints/steps_1000000.pth
+
+# number of episodes to play (default: 10)
+uv run eval.py eval.ckpt=<path> eval.episode=3
 ```
 
-`agent.name` must match the agent used for training.
+The agent and model settings are restored from the run's `.hydra/config.yaml`, so they always match the checkpoint. `device` is taken from the current config.
 
 ## Configuration
 
 | Path | Content |
 |------|---------|
-| `config/config.yaml` | Base config. `agent.name` selects `dqn` / `target_dqn` / `double_dqn`. Differences from the original paper are noted in comments |
+| `config/config.yaml` | Base config for training. `agent.name` selects `dqn` / `target_dqn` / `double_dqn`. Differences from the original paper are noted in comments |
+| `config/eval.yaml` | Evaluation settings (`eval.ckpt`, `eval.episode`) on top of the base config |
 | `config/experiment/*.yaml` | Presets reproducing past runs (overrides on top of the base config) |
 
 To print the resolved config without running: `uv run train.py --cfg job`
 
 ## Outputs
 
-| Path | Content |
-|------|---------|
-| `checkpoints/` | Model weights and optimizer state |
-| `videos/` | Recorded evaluation episodes |
-| `figures/` | Loss and q value plot figures |
-| `outputs/`, `multirun/` | Hydra run directories (resolved config, logs) |
+Each training run writes everything to its own directory:
+
+```
+outputs/<agent>/<YYYY-MM-DD_HH-MM-SS>/
+├── .hydra/
+│   ├── config.yaml      # resolved config used for the run
+│   └── overrides.yaml   # CLI overrides
+├── train.log
+├── checkpoints/         # steps_<N>.pth (model weights, optimizer state, history)
+├── figures/             # loss and q value plots
+└── videos/              # recorded validation episodes
+```
+
+Multirun (`-m`) jobs go to `multirun/<YYYY-MM-DD_HH-MM-SS>/<job number>_<agent>/` with the same layout.
+
+Evaluation does not create an output directory.
 
 ## References
 
