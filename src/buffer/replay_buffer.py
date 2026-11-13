@@ -33,33 +33,8 @@ class ReplayBuffer:
             np.random.choice(np.arange(high - low) % self.capacity, self.batch_size, replace=False),
         ).view(-1, 1)
 
-        def get_valid_indices(idxs: torch.Tensor) -> torch.Tensor:
-            """
-            obs: [2, 3, 4, 5], done: [0, 1, 0, 0] -> obs: [4, 4, 4, 5]
-            """
-            offsets = torch.arange(-3, 1) # (4,)
-            all_idxs = (idxs + offsets) % self.capacity # (batch_size, 4)
-
-            dones = self.replay_buffer['done'][all_idxs] # (batch_size, 4)
-
-            # get indices for done == 1, to the right by 1
-            weights = torch.tensor([1, 2, 3, 0]).view(1, -1)
-            done_positions = dones * weights
-
-            # get rightmost indices for done == 1, to the right by 1
-            max_pos = torch.max(done_positions, dim=1, keepdim=True).values # (batch_size, 1)
-
-            # compare with original indices
-            original_idxs = torch.tensor([0, 1, 2, 3]) # (4,)
-            # when done_positions == [0, 0, ..., 0], original indices should be used
-            final_offsets = torch.max(max_pos, original_idxs) # (batch_size, 4)
-
-            valid_idxs = torch.gather(all_idxs, dim=1, index=final_offsets)
-
-            return valid_idxs
-
-        valid_obs_idxs = get_valid_indices(idxs)
-        valid_next_obs_idxs = get_valid_indices(idxs + 1)
+        valid_obs_idxs = self._stack_indices(idxs)          # frames t-3 .. t
+        valid_next_obs_idxs = self._stack_indices(idxs + 1) # frames t-2 .. t+1
 
         return {
             'obs': self.replay_buffer['obs'][valid_obs_idxs].to(self.device),
@@ -68,6 +43,41 @@ class ReplayBuffer:
             'next_obs': self.replay_buffer['obs'][valid_next_obs_idxs].to(self.device),
             'done': self.replay_buffer['done'][idxs.squeeze(1)].float().to(self.device),
         }
+
+    def _stack_indices(self, idxs: torch.Tensor) -> torch.Tensor:
+        """
+        Returns buffer indices of the 4 frames stacked into the observation at each t.
+
+        Frames t-3 .. t are used, but frames that belong to a previous episode are
+        replaced by the first frame of the episode containing t (the same padding the
+        training loop uses after env.reset()).
+
+        Example (t = 5):
+            slots: [2, 3, 4, 5], done: [0, 1, 0, 0] -> [4, 4, 4, 5]  (episode starts at 4)
+            slots: [2, 3, 4, 5], done: [0, 0, 0, 1] -> [2, 3, 4, 5]  (done at t is irrelevant)
+
+        Args:
+            idxs: (batch_size, 1) indices t
+        Returns:
+            (batch_size, 4) indices, oldest frame first
+        """
+        offsets = torch.arange(-3, 1)                                # (4,) = [-3, -2, -1, 0]
+        all_idxs = (idxs + offsets) % self.capacity                  # (batch_size, 4)
+
+        # A done at t-3 .. t-1 means the episode containing t starts right after it.
+        # A done at t itself only says the episode ends after t, so it is ignored.
+        dones = self.replay_buffer['done'][all_idxs[:, :3]]          # (batch_size, 3)
+        has_done = dones.any(dim=1)                                  # (batch_size,)
+
+        # position (0..2) of the rightmost done: flip, take the first True, map back
+        last_done = 2 - dones.flip(dims=[1]).int().argmax(dim=1)     # (batch_size,)
+        # position (0..3) of the first frame of t's episode; 0 when there is no done
+        start = torch.where(has_done, last_done + 1, 0)              # (batch_size,)
+
+        # replace frames before `start` with the frame at `start`
+        start_idxs = all_idxs.gather(1, start.unsqueeze(1))          # (batch_size, 1)
+        before_start = torch.arange(4) < start.unsqueeze(1)          # (batch_size, 4)
+        return torch.where(before_start, start_idxs, all_idxs)       # (batch_size, 4)
 
     def store(
         self,
