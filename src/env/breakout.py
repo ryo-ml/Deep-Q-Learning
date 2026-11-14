@@ -19,9 +19,10 @@ def make_env(
     converts to grayscale and resizes to 84x84 (uint8).
 
     Args:
-        env_cfg: `cfg.env` (name, frameskip, repeat_action_probability)
-        seed: seeds `env.action_space`, which has its own RNG that `set_seed` does not cover.
-            All random actions (warmup, epsilon-greedy) are drawn from it.
+        env_cfg: `cfg.env` (name, frameskip, repeat_action_probability, noop_max)
+        seed: seeds the RNGs that `set_seed` does not cover: `env.action_space` (all random
+            actions in warmup and epsilon-greedy are drawn from it) and the env itself
+            (the number of no-op actions at reset).
     """
     gym.register_envs(ale_py)
 
@@ -33,13 +34,18 @@ def make_env(
     )
     env = AtariPreprocessing(
         env,
-        noop_max=0,                    # no random no-op actions at reset
+        noop_max=env_cfg.noop_max,     # random number (0 .. noop_max) of no-op actions at reset
         frame_skip=env_cfg.frameskip,
         screen_size=84,
         terminal_on_life_loss=False,
         grayscale_obs=True,
         scale_obs=False,               # keep uint8; DQN.forward scales to [0, 1]
     )  # obs: (84, 84) uint8
+
+    # Seed before RecordVideo so this reset is not recorded as an (empty) episode
+    if seed is not None:
+        env.action_space.seed(seed)
+        env.reset(seed=seed)  # seeds the env's own RNG; later reset() calls continue from it
 
     if render_mode == 'rgb_array' and record_video:
         if video_folder is None:
@@ -51,8 +57,5 @@ def make_env(
             episode_trigger=lambda e: True,
             name_prefix=name_prefix,
         )
-
-    if seed is not None:
-        env.action_space.seed(seed)
 
     return env
