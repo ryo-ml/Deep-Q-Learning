@@ -54,7 +54,7 @@ class DQNAgent(BaseAgent):
     def select_action(self, obs: torch.Tensor) -> int:
         self.epsilon = max(
             self.epsilon_end,
-            self.epsilon_start - (self.epsilon_start - self.epsilon_end) * self.update_steps / self.epsilon_annealing
+            self.epsilon_start - (self.epsilon_start - self.epsilon_end) * self.env_steps / self.epsilon_annealing
         )
 
         if np.random.uniform() < self.epsilon:
