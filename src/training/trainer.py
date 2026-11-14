@@ -57,37 +57,6 @@ class Trainer:
 
         logger.info(' Initialization done '.center(40, '='))
 
-    def warmup(self) -> None:
-        """
-        Fills replay buffer with transitions using random actions.
-        """
-        logger.info('Warmup started')
-
-        fixed_states = []
-        obs, _ = self.train_env.reset(seed=self.cfg.seed)
-        fixed_states_deque = deque([obs.copy() for _ in range(4)], maxlen=4)
-
-        while self.agent.replay_buffer.size < self.cfg.train.warmup_steps:
-            action = self.train_env.action_space.sample() # random action
-            next_obs, reward, terminated, truncated, _ = self.train_env.step(action)
-            done = terminated or truncated
-
-            if len(fixed_states) < self.cfg.train.n_fixed_states:
-                fixed_states.append(np.stack(fixed_states_deque, axis=0))
-
-            self.agent.replay_buffer.store(obs, action, reward, done)
-            fixed_states_deque.append(next_obs)
-
-            if done:
-                obs, _ = self.train_env.reset()
-                fixed_states_deque = deque([obs.copy() for _ in range(4)], maxlen=4)
-            else:
-                obs = next_obs
-
-        self.fixed_states = torch.tensor(np.array(fixed_states), dtype=torch.uint8).to(self.cfg.device)
-
-        logger.info('Warmup done!')
-
     def _log_metric(self, steps: int, **metrics):
         """
         Updates `self.history`
@@ -97,60 +66,80 @@ class Trainer:
         self.history.append(log_dict)
 
     def train(self) -> None:
-        self.warmup()
-        loss_interval = []
+        """
+        Fills the replay buffer with random actions for `warmup_steps` steps, then trains
+        for `total_steps` steps (`self.steps` counts only these). The episode in progress at
+        the end of warmup continues into training (no reset at the boundary).
+        """
+        obs, _ = self.train_env.reset(seed=self.cfg.seed)
+        frames = deque([obs] * 4, maxlen=4)
 
-        pbar = tqdm(total=self.cfg.train.total_steps)
+        # warmup: random actions, only fills the replay buffer
+        logger.info('Warmup started')
+        fixed_states = []
+        for _ in range(self.cfg.train.warmup_steps):
+            if len(fixed_states) < self.cfg.train.n_fixed_states:
+                fixed_states.append(np.stack(frames))  # (4, 84, 84)
 
-        while self.steps < self.cfg.train.total_steps:
-            obs, _ = self.train_env.reset()
-            frame_deque = deque([obs.copy() for _ in range(4)], maxlen=4)
-            done = False
-
-            while not done and self.steps < self.cfg.train.total_steps:
-                stacked_obs = np.stack(frame_deque, axis=0)
-                obs_tensor = torch.tensor(stacked_obs, dtype=torch.uint8).unsqueeze(0).to(self.cfg.device)
-                action = self.agent.select_action(obs_tensor)
-                next_obs, reward, terminated, truncated, _ = self.train_env.step(action)
-                done = terminated or truncated
-                self.agent.replay_buffer.store(obs, action, reward, done)
-                frame_deque.append(next_obs)
+            action = self.train_env.action_space.sample()
+            # step / store / reset: keep in sync with the train loop below
+            next_obs, reward, terminated, truncated, _ = self.train_env.step(action)
+            done = terminated or truncated
+            self.agent.replay_buffer.store(obs, action, reward, done)
+            if done:
+                obs, _ = self.train_env.reset()
+                frames = deque([obs] * 4, maxlen=4)
+            else:
                 obs = next_obs
+                frames.append(obs)
 
-                assert self.agent.replay_buffer.size >= self.cfg.replay_buffer.batch_size, \
-                    f'Replay buffer size {self.agent.replay_buffer.size} is less than batch size {self.cfg.replay_buffer.batch_size}'
+        self.fixed_states = torch.from_numpy(np.stack(fixed_states)).to(self.cfg.device)
+        logger.info('Warmup done!')
 
-                self.steps += 1
-                if self.steps % self.cfg.train.update_interval == 0:
-                    loss_batch = self.agent.update()
-                    loss_interval.append(loss_batch)
+        # train: continues the episode left by warmup (obs / frames are carried over)
+        logger.info('Training started')
+        loss_interval = []
+        for _ in tqdm(range(self.cfg.train.total_steps)):
+            state = torch.from_numpy(np.stack(frames)).unsqueeze(0).to(self.cfg.device)  # (1, 4, 84, 84)
+            action = self.agent.select_action(state)
+            # step / store / reset: keep in sync with the warmup loop above
+            next_obs, reward, terminated, truncated, _ = self.train_env.step(action)
+            done = terminated or truncated
+            self.agent.replay_buffer.store(obs, action, reward, done)
+            if done:
+                obs, _ = self.train_env.reset()
+                frames = deque([obs] * 4, maxlen=4)
+            else:
+                obs = next_obs
+                frames.append(obs)
 
-                pbar.update(1)
-                pbar.set_description(f'Steps: {self.steps}')
+            self.steps += 1
+            if self.steps % self.cfg.train.update_interval == 0:
+                loss_interval.append(self.agent.update())
 
-                # log
-                if self.steps % self.cfg.train.log_interval == 0:
-                    loss_mean = np.mean(loss_interval)
-                    loss_interval = []
+            # log
+            if self.steps % self.cfg.train.log_interval == 0:
+                loss_mean = np.mean(loss_interval)
+                loss_interval = []
 
-                    # Q values for fixed set
-                    with torch.no_grad():
-                        q_values = torch.max(self.agent.model(self.fixed_states), dim=-1).values # (n_fixed_states,)
-                        q_values_mean = q_values.mean().item()
+                # Q values for fixed set
+                with torch.no_grad():
+                    q_values = torch.max(self.agent.model(self.fixed_states), dim=-1).values # (n_fixed_states,)
+                    q_values_mean = q_values.mean().item()
 
-                    self._log_metric(self.steps, loss=loss_mean, q_value=q_values_mean) # update history
+                self._log_metric(self.steps, loss=loss_mean, q_value=q_values_mean) # update history
 
-                    logger.info(f'Step {self.steps} | Q: {q_values_mean:.4f} | Loss: {loss_mean:.4f} | Epsilon: {self.agent.epsilon:.4f}')
+                logger.info(f'Step {self.steps} | Q: {q_values_mean:.4f} | Loss: {loss_mean:.4f} | Epsilon: {self.agent.epsilon:.4f}')
 
-                # valid
-                if self.steps % self.cfg.train.valid_interval == 0:
-                    self.valid()
+            # valid
+            if self.steps % self.cfg.train.valid_interval == 0:
+                self.valid()
 
-                # save
-                if self.steps % self.cfg.train.save_interval == 0:
-                    self.save()
+            # save
+            if self.steps % self.cfg.train.save_interval == 0:
+                self.save()
 
-        logger.info(f'Training has ended')
+        logger.info('Training has ended')
 
         self.plot_results()
 
