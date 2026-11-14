@@ -1,15 +1,12 @@
-from .agent import BaseAgent
-from .dqn_agent import DQNAgent
-from .target_dqn_agent import TargetDQNAgent
-from .double_dqn_agent import DoubleDQNAgent
+from .dqn_agent import DQNAgent, TargetDQNAgent, DoubleDQNAgent
 
-AGENTS: dict[str, type[BaseAgent]] = {
+AGENTS: dict[str, type[DQNAgent]] = {
     'dqn': DQNAgent,
     'target_dqn': TargetDQNAgent,
     'double_dqn': DoubleDQNAgent,
 }
 
-def get_agent_class(name: str) -> type[BaseAgent]:
+def get_agent_class(name: str) -> type[DQNAgent]:
     if name not in AGENTS:
         raise ValueError(f'Unknown agent: {name}. Available: {list(AGENTS)}')
     return AGENTS[name]

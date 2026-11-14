@@ -7,7 +7,7 @@ from omegaconf import DictConfig
 import gymnasium as gym
 
 from ..env.breakout import make_env
-from ..agents.dqn_agent import BaseAgent
+from ..agents.dqn_agent import DQNAgent
 from .rollout import run_episode
 from ..utils.visualize import plot_loss, plot_q_value
 
@@ -19,7 +19,7 @@ class Trainer:
     def __init__(
         self,
         train_env: gym.Env,
-        agent: BaseAgent,
+        agent: DQNAgent,
         cfg: DictConfig,
         output_dir: Path,
         verbose: bool = True,
@@ -124,7 +124,7 @@ class Trainer:
 
                 # Q values for fixed set
                 with torch.no_grad():
-                    q_values = torch.max(self.agent.model(self.fixed_states), dim=-1).values # (n_fixed_states,)
+                    q_values = torch.max(self.agent.online_model(self.fixed_states), dim=-1).values # (n_fixed_states,)
                     q_values_mean = q_values.mean().item()
 
                 self._log_metric(self.steps, loss=loss_mean, q_value=q_values_mean) # update history
@@ -168,7 +168,7 @@ class Trainer:
         )
 
         try:
-            score = run_episode(self.agent.model, val_env, self.cfg.device)
+            score = run_episode(self.agent.online_model, val_env, self.cfg.device)
         finally:
             val_env.close()
         logger.info(f'Valid score: {score}')
