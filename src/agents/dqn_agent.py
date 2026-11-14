@@ -1,6 +1,7 @@
 import numpy as np
 import torch
 import gymnasium as gym
+from hydra.utils import instantiate
 from omegaconf import DictConfig
 
 from ..models.dqn import DQN
@@ -33,20 +34,8 @@ class DQNAgent:
             cfg.device,
         )
 
-        optim_type = {
-            'adam': torch.optim.Adam,
-            'rmsprop': torch.optim.RMSprop,
-        }
-        optim_cfg = {k: v for k, v in cfg.optimizer.items() if k != 'type'}
-        self.optim = optim_type[cfg.optimizer.type](
-            self.online_model.parameters(),
-            **optim_cfg,
-        )
-
-        loss_type = {
-            'mse': torch.nn.MSELoss,
-        }
-        self.loss_func = loss_type[cfg.model.loss]()
+        self.optim = instantiate(cfg.optimizer, params=self.online_model.parameters())
+        self.loss_func = instantiate(cfg.loss)
 
         self.gamma = cfg.agent.gamma
         self.epsilon_start = cfg.agent.epsilon_start

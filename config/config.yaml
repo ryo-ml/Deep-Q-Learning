@@ -13,11 +13,12 @@ agent:
   epsilon_annealing: 1000000 # paper: 1000000
   gamma: 0.99
 
-model:
-  loss: mse
+# built with hydra.utils.instantiate (_target_ is the class; the other keys are its arguments)
+loss:
+  _target_: torch.nn.MSELoss
 
 optimizer:
-  type: rmsprop
+  _target_: torch.optim.RMSprop
   lr: 0.00025
   alpha: 0.95
   eps: 0.01
