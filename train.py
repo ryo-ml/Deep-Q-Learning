@@ -14,6 +14,7 @@ def main(cfg: DictConfig) -> None:
     set_seed(cfg.seed)
 
     env = make_env(
+        cfg.env,
         render_mode='rgb_array',
         record_video=False,
     )

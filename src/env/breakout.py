@@ -4,20 +4,31 @@ from gymnasium.wrappers import GrayscaleObservation, ResizeObservation, Transfor
 import ale_py
 
 import numpy as np
+from omegaconf import DictConfig
 
 def make_env(
+    env_cfg: DictConfig,
     render_mode: str = 'rgb_array',
     record_video: bool = False,
     video_folder: Path | None = None,
     name_prefix: str | None = None,
 ) -> gym.Env:
+    """
+    Args:
+        env_cfg: `cfg.env` (name, frameskip, repeat_action_probability)
+    """
     gym.register_envs(ale_py)
 
-    env = gym.make("ALE/Breakout-v5", render_mode=render_mode)
+    env = gym.make(
+        id=env_cfg.name,
+        render_mode=render_mode,
+        frameskip=env_cfg.frameskip,
+        repeat_action_probability=env_cfg.repeat_action_probability,
+    )
     env = GrayscaleObservation(env)
     env = ResizeObservation(env, (110, 84))
     env = TransformObservation(
-        env, 
+        env,
         lambda obs: obs[18:102, :],
         gym.spaces.Box(low=0, high=255, shape=(84, 84), dtype=np.uint8)
     )

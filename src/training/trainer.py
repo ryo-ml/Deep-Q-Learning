@@ -171,6 +171,7 @@ class Trainer:
     def valid(self, render_mode: str = 'rgb_array') -> None:
         video_dir = self.output_dir / 'videos'
         val_env = make_env(
+            self.cfg.env,
             render_mode=render_mode,
             record_video=render_mode == 'rgb_array',
             video_folder=video_dir,
