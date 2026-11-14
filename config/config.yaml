@@ -15,7 +15,7 @@ agent:
 
 # built with hydra.utils.instantiate (_target_ is the class; the other keys are its arguments)
 loss:
-  _target_: torch.nn.MSELoss
+  _target_: torch.nn.HuberLoss
 
 optimizer:
   _target_: torch.optim.RMSprop
