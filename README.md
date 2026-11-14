@@ -25,8 +25,7 @@ Dependencies are defined in `pyproject.toml` and pinned in `uv.lock`.
 .
 ├── config/
 │   ├── config.yaml               # base config for training (paper settings)
-│   ├── eval.yaml                 # config for evaluation
-│   └── experiment/               # presets reproducing past runs
+│   └── eval.yaml                 # config for evaluation
 ├── pyproject.toml
 ├── uv.lock
 ├── train.py                      # training entry point
@@ -36,22 +35,21 @@ Dependencies are defined in `pyproject.toml` and pinned in `uv.lock`.
 │   └── random_action.py          # run a random policy
 └── src/
     ├── agents/
-    │   ├── agent.py              # BaseAgent (ABC)
-    │   ├── dqn_agent.py          # DQNAgent
-    │   ├── target_dqn_agent.py   # TargetDQNAgent
-    │   ├── double_dqn_agent.py   # DoubleDQNAgent
+    │   ├── dqn_agent.py          # DQNAgent -> TargetDQNAgent -> DoubleDQNAgent
     │   └── registry.py           # agent name -> class
     ├── models/
     │   └── dqn.py                # CNN
     ├── env/
-    │   └── breakout.py
+    │   └── breakout.py           # env creation and preprocessing
     ├── buffer/
     │   └── replay_buffer.py
     ├── training/
-    │   └── trainer.py            # Trainer
+    │   ├── trainer.py            # Trainer (warmup, training loop, validation, checkpoints)
+    │   └── rollout.py            # plays one episode (validation and evaluation)
     └── utils/
         ├── logger.py
-        └── seed.py
+        ├── seed.py
+        └── visualize.py          # loss and q value plots
 ```
 
 ## Training
@@ -67,9 +65,6 @@ uv run train.py agent.name=dqn
 
 # override any value from the CLI
 uv run train.py agent.name=target_dqn train.total_steps=2000000
-
-# use a preset that reproduces a past run
-uv run train.py +experiment=target_dqn
 
 # run several agents in one go (multirun)
 uv run train.py -m agent.name=dqn,target_dqn,double_dqn
@@ -88,17 +83,20 @@ uv run eval.py eval.ckpt=outputs/double_dqn/2026-11-13_15-00-00/checkpoints/step
 uv run eval.py eval.ckpt=<path> eval.episode=3
 ```
 
-The agent and model settings are restored from the run's `.hydra/config.yaml`, so they always match the checkpoint. `device` is taken from the current config.
+Only the Q network (online network) weights are loaded from the checkpoint; the replay buffer, optimizer and target network are not created. Episodes are played with an epsilon-greedy policy (epsilon = 0.05) and rendered to the screen.
+
+The other settings (`env.*`, `seed`, `device`) come from the current config, not from the run. If a run used different env settings, pass them on the CLI (e.g. `env.repeat_action_probability=0.25`).
 
 ## Configuration
 
 | Path | Content |
 |------|---------|
-| `config/config.yaml` | Base config for training. `agent.name` selects `dqn` / `target_dqn` / `double_dqn`. Differences from the original paper are noted in comments |
+| `config/config.yaml` | Base config for training. `agent.name` selects `dqn` / `target_dqn` / `double_dqn`. `loss` and `optimizer` are built with `hydra.utils.instantiate` (`_target_` is the class). Paper values are noted in comments |
 | `config/eval.yaml` | Evaluation settings (`eval.ckpt`, `eval.episode`) on top of the base config |
-| `config/experiment/*.yaml` | Presets reproducing past runs (overrides on top of the base config) |
 
 To print the resolved config without running: `uv run train.py --cfg job`
+
+`seed` fixes Python, NumPy, PyTorch and the env's action space (all random actions are sampled from it), so two runs with the same config give identical results on CPU. On GPU (CUDA / MPS) small differences can remain.
 
 ## Outputs
 

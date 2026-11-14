@@ -1,4 +1,0 @@
-# @package _global_
-# Settings from the former config_double_dqn.yaml (paper-scale run)
-agent:
-  name: double_dqn
