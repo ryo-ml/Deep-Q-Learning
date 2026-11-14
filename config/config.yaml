@@ -3,7 +3,7 @@ device: mps
 
 env:
   name: ALE/Breakout-v5
-  frameskip: 4                   # paper: 4
+  frameskip: 4                   # paper: 4 (applied by AtariPreprocessing, which max-pools the last 2 frames)
   repeat_action_probability: 0.0 # paper: 0.0 (no sticky actions); ALE v5 default is 0.25
 
 agent:

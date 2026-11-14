@@ -1,9 +1,8 @@
 from pathlib import Path
 import gymnasium as gym
-from gymnasium.wrappers import GrayscaleObservation, ResizeObservation, TransformObservation, RecordVideo
+from gymnasium.wrappers import AtariPreprocessing, RecordVideo
 import ale_py
 
-import numpy as np
 from omegaconf import DictConfig
 
 def make_env(
@@ -15,6 +14,10 @@ def make_env(
     name_prefix: str | None = None,
 ) -> gym.Env:
     """
+    Creates the env with the Nature DQN preprocessing: each step repeats the action
+    for `frameskip` frames, max-pools the last two frames (removes Atari flicker),
+    converts to grayscale and resizes to 84x84 (uint8).
+
     Args:
         env_cfg: `cfg.env` (name, frameskip, repeat_action_probability)
         seed: seeds `env.action_space`, which has its own RNG that `set_seed` does not cover.
@@ -25,16 +28,18 @@ def make_env(
     env = gym.make(
         id=env_cfg.name,
         render_mode=render_mode,
-        frameskip=env_cfg.frameskip,
+        frameskip=1,  # frame skipping is done by AtariPreprocessing so it can max-pool frames
         repeat_action_probability=env_cfg.repeat_action_probability,
     )
-    env = GrayscaleObservation(env)
-    env = ResizeObservation(env, (110, 84))
-    env = TransformObservation(
+    env = AtariPreprocessing(
         env,
-        lambda obs: obs[18:102, :],
-        gym.spaces.Box(low=0, high=255, shape=(84, 84), dtype=np.uint8)
-    )
+        noop_max=0,                    # no random no-op actions at reset
+        frame_skip=env_cfg.frameskip,
+        screen_size=84,
+        terminal_on_life_loss=False,
+        grayscale_obs=True,
+        scale_obs=False,               # keep uint8; DQN.forward scales to [0, 1]
+    )  # obs: (84, 84) uint8
 
     if render_mode == 'rgb_array' and record_video:
         if video_folder is None:
