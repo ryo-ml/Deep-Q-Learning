@@ -161,6 +161,7 @@ class Trainer:
         video_dir = self.output_dir / 'videos'
         val_env = make_env(
             self.cfg.env,
+            seed=self.cfg.seed,
             render_mode=render_mode,
             record_video=render_mode == 'rgb_array',
             video_folder=video_dir,

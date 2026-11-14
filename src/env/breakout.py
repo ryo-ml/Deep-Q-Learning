@@ -8,6 +8,7 @@ from omegaconf import DictConfig
 
 def make_env(
     env_cfg: DictConfig,
+    seed: int | None = None,
     render_mode: str = 'rgb_array',
     record_video: bool = False,
     video_folder: Path | None = None,
@@ -16,6 +17,8 @@ def make_env(
     """
     Args:
         env_cfg: `cfg.env` (name, frameskip, repeat_action_probability)
+        seed: seeds `env.action_space`, which has its own RNG that `set_seed` does not cover.
+            All random actions (warmup, epsilon-greedy) are drawn from it.
     """
     gym.register_envs(ale_py)
 
@@ -43,5 +46,8 @@ def make_env(
             episode_trigger=lambda e: True,
             name_prefix=name_prefix,
         )
+
+    if seed is not None:
+        env.action_space.seed(seed)
 
     return env

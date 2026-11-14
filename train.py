@@ -15,10 +15,11 @@ def main(cfg: DictConfig) -> None:
 
     env = make_env(
         cfg.env,
+        seed=cfg.seed,
         render_mode='rgb_array',
         record_video=False,
     )
-    agent = get_agent_class(cfg.agent.name)(cfg, env.action_space.n)
+    agent = get_agent_class(cfg.agent.name)(cfg, env.action_space)
     trainer = Trainer(
         env,
         agent,

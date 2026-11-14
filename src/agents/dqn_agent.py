@@ -1,5 +1,6 @@
 import numpy as np
 import torch
+import gymnasium as gym
 from omegaconf import DictConfig
 
 from ..models.dqn import DQN
@@ -16,10 +17,15 @@ class DQNAgent:
     def __init__(
         self,
         cfg: DictConfig,
-        n_actions: int,
+        action_space: gym.spaces.Discrete,
     ) -> None:
-        self.n_actions = n_actions
-        self.online_model = DQN(n_actions).to(cfg.device)
+        """
+        Args:
+            action_space: the training env's action space; random actions are sampled from it
+                (seeded in make_env)
+        """
+        self.action_space = action_space
+        self.online_model = DQN(action_space.n).to(cfg.device)
 
         self.replay_buffer = ReplayBuffer(
             cfg.replay_buffer.capacity,
@@ -64,7 +70,7 @@ class DQNAgent:
         )
 
         if np.random.uniform() < self.epsilon:
-            action = np.random.randint(self.n_actions)  # returns a Python int
+            action = int(self.action_space.sample())
         else:
             with torch.no_grad():
                 q_values = self.online_model(obs)  # (1, n_actions)
@@ -144,10 +150,10 @@ class TargetDQNAgent(DQNAgent):
     def __init__(
         self,
         cfg: DictConfig,
-        n_actions: int,
+        action_space: gym.spaces.Discrete,
     ) -> None:
-        super().__init__(cfg, n_actions)
-        self.target_model = DQN(n_actions).to(cfg.device)
+        super().__init__(cfg, action_space)
+        self.target_model = DQN(action_space.n).to(cfg.device)
         self.target_model.load_state_dict(self.online_model.state_dict())
         self.target_update_interval = cfg.train.target_update_interval
 

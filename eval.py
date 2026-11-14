@@ -46,7 +46,7 @@ def main(cfg: DictConfig) -> None:
     set_seed(cfg.seed)
 
     ckpt = resolve_ckpt(Path(cfg.eval.ckpt))
-    env = make_env(cfg.env, render_mode='human')
+    env = make_env(cfg.env, seed=cfg.seed, render_mode='human')
     model = load_model(ckpt, env.action_space.n, cfg.device)
 
     try:
