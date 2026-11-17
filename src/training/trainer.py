@@ -5,6 +5,7 @@ import numpy as np
 import torch
 from omegaconf import DictConfig
 import gymnasium as gym
+import wandb
 
 from ..env.breakout import make_env
 from ..agents.dqn_agent import DQNAgent
@@ -128,6 +129,11 @@ class Trainer:
                     q_values_mean = q_values.mean().item()
 
                 self._log_metric(self.steps, loss=loss_mean, q_value=q_values_mean) # update history
+                wandb.log({
+                    'train/loss': loss_mean,
+                    'train/q_value': q_values_mean,
+                    'train/epsilon': self.agent.epsilon,
+                }, step=self.steps)
 
                 logger.info(f'Step {self.steps} | Q: {q_values_mean:.4f} | Loss: {loss_mean:.4f} | Epsilon: {self.agent.epsilon:.4f}')
 
@@ -163,7 +169,7 @@ class Trainer:
             self.cfg.env,
             seed=self.cfg.seed,
             render_mode=render_mode,
-            record_video=render_mode == 'rgb_array',
+            record_video=(render_mode == 'rgb_array'),
             video_folder=video_dir,
             name_prefix=f'{self.steps}',
         )
@@ -171,8 +177,14 @@ class Trainer:
         try:
             score = run_episode(self.agent.online_model, val_env, self.cfg.device)
         finally:
-            val_env.close()
+            val_env.close()  # RecordVideo writes the video file on close
         logger.info(f'Valid score: {score}')
+
+        metrics = {'valid/score': score}
+        video = video_dir / f'{self.steps}-episode-0.mp4'
+        if video.exists():
+            metrics['valid/video'] = wandb.Video(str(video), format='mp4')
+        wandb.log(metrics, step=self.steps)
 
     def save(self) -> None:
         d = {

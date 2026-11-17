@@ -49,3 +49,8 @@ hydra:
       simple:
         format: '%(asctime)s [%(name)s] [%(levelname)s] %(message)s'
         datefmt: '%H:%M:%S'
+
+wandb:
+  project: Deep-Q-Learning
+  entity: null
+  mode: online

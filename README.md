@@ -10,6 +10,7 @@ A PyTorch implementation of deep reinforcement learning on [Atari Breakout](http
 
 - [uv](https://docs.astral.sh/uv/)
 - Python 3.11 (installed automatically by uv)
+- A [Weights & Biases](https://wandb.ai/) account (optional; see [Experiment tracking](#experiment-tracking))
 
 ## Setup
 
@@ -49,6 +50,7 @@ Dependencies are defined in `pyproject.toml` and pinned in `uv.lock`.
     └── utils/
         ├── logger.py
         ├── seed.py
+        ├── tracking.py           # wandb run setup
         └── visualize.py          # loss and q value plots
 ```
 
@@ -69,6 +71,29 @@ uv run train.py agent.name=target_dqn train.total_steps=2000000
 # run several agents in one go (multirun)
 uv run train.py -m agent.name=dqn,target_dqn,double_dqn
 ```
+
+### Experiment tracking
+
+Training metrics are logged to [Weights & Biases](https://wandb.ai/): `train/loss`, `train/q_value` and `train/epsilon` every `train.log_interval` steps, and `valid/score` and the validation video every `train.valid_interval` steps. The full config (except the `wandb` section) is logged as the run's config.
+
+Put your API key in a `.env` file at the repository root (gitignored):
+
+```
+WANDB_API_KEY=<your key>
+```
+
+```bash
+# log to wandb (default: wandb.mode=online)
+uv run train.py
+
+# keep the run locally and upload it later with `wandb sync`
+uv run train.py wandb.mode=offline
+
+# turn wandb off (e.g. for quick tests); no API key is needed
+uv run train.py wandb.mode=disabled
+```
+
+Runs are named `<agent>/<YYYY-MM-DD_HH-MM-SS>` (the same as the output directory) and grouped by agent in project `wandb.project`. `wandb.entity` is `null` by default, which uses your account's default entity (or `WANDB_ENTITY`).
 
 ## Evaluation
 
@@ -93,6 +118,7 @@ The other settings (`env.*`, `seed`, `device`) come from the current config, not
 |------|---------|
 | `config/config.yaml` | Base config for training. `agent.name` selects `dqn` / `target_dqn` / `double_dqn`. `loss` and `optimizer` are built with `hydra.utils.instantiate` (`_target_` is the class). Paper values are noted in comments |
 | `config/eval.yaml` | Evaluation settings (`eval.ckpt`, `eval.episode`) on top of the base config |
+| `config/config.yaml` → `wandb` | wandb `project`, `entity` and `mode` (`online` / `offline` / `disabled`) |
 
 To print the resolved config without running: `uv run train.py --cfg job`
 
@@ -110,7 +136,8 @@ outputs/<agent>/<YYYY-MM-DD_HH-MM-SS>/
 ├── train.log
 ├── checkpoints/         # steps_<N>.pth (model weights, optimizer state, history)
 ├── figures/             # loss and q value plots
-└── videos/              # recorded validation episodes
+├── videos/              # recorded validation episodes
+└── wandb/               # wandb's local files for the run (unless wandb.mode=disabled)
 ```
 
 Multirun (`-m`) jobs go to `multirun/<YYYY-MM-DD_HH-MM-SS>/<job number>_<agent>/` with the same layout.
