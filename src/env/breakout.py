@@ -54,7 +54,7 @@ def make_env(
         env = RecordVideo(
             env,
             video_folder=video_folder,
-            episode_trigger=lambda _: True,
+            episode_trigger=lambda e: e == 0,  # record only the first episode
             name_prefix=name_prefix,
         )
 

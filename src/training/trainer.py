@@ -175,12 +175,17 @@ class Trainer:
         )
 
         try:
-            score = run_episode(self.agent.online_model, val_env, self.cfg.device)
+            # one env for all episodes: each reset starts with a different number of no-ops
+            scores = [
+                run_episode(self.agent.online_model, val_env, self.cfg.device)
+                for _ in range(self.cfg.train.valid_episodes)
+            ]
         finally:
             val_env.close()  # RecordVideo writes the video file on close
-        logger.info(f'Valid score: {score}')
+        score_mean, score_std = float(np.mean(scores)), float(np.std(scores))
+        logger.info(f'Valid score: {score_mean:.1f} ± {score_std:.1f} over {len(scores)} episodes')
 
-        metrics = {'valid/score': score}
+        metrics = {'valid/score_mean': score_mean, 'valid/score_std': score_std}
         video = video_dir / f'{self.steps}-episode-0.mp4'
         if video.exists():
             metrics['valid/video'] = wandb.Video(str(video), format='mp4')

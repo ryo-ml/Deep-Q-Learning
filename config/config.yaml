@@ -34,6 +34,7 @@ train:
   warmup_steps: 50000
   log_interval: 5000
   valid_interval: 1000000 # paper: 1000000
+  valid_episodes: 10
   save_interval: 100000
   update_interval: 4
   target_update_interval: 10000 # paper: 10000 (used by target_dqn / double_dqn only)
