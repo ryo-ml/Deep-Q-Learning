@@ -2,6 +2,7 @@ import re
 from pathlib import Path
 
 import hydra
+import numpy as np
 import torch
 from omegaconf import DictConfig
 
@@ -46,15 +47,17 @@ def main(cfg: DictConfig) -> None:
     set_seed(cfg.seed)
 
     ckpt = resolve_ckpt(Path(cfg.eval.ckpt))
-    env = make_env(cfg.env, seed=cfg.seed, render_mode='human')
+    env = make_env(cfg.env, seed=cfg.seed, render_mode='human' if cfg.eval.render else None)
     model = load_model(ckpt, env.action_space.n, cfg.device)
 
+    scores = []
     try:
         for i in range(cfg.eval.episode):
-            score = run_episode(model, env, cfg.device)
-            logger.info(f'Episode {i}: score {score}')
+            scores.append(run_episode(model, env, cfg.device))
+            logger.info(f'Episode {i}: score {scores[-1]}')
     finally:
         env.close()
+    logger.info(f'Score: {np.mean(scores):.1f} ± {np.std(scores):.1f} over {len(scores)} episodes')
 
 if __name__ == '__main__':
     main()

@@ -8,7 +8,7 @@ from omegaconf import DictConfig
 def make_env(
     env_cfg: DictConfig,
     seed: int | None = None,
-    render_mode: str = 'rgb_array',
+    render_mode: str | None = 'rgb_array',  # None: no rendering
     record_video: bool = False,
     video_folder: Path | None = None,
     name_prefix: str | None = None,

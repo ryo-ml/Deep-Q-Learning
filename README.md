@@ -106,9 +106,12 @@ uv run eval.py eval.ckpt=outputs/double_dqn/2026-11-13_15-00-00/checkpoints/step
 
 # number of episodes to play (default: 10)
 uv run eval.py eval.ckpt=<path> eval.episode=3
+
+# no window (e.g. on a server without a display): only the scores are printed
+uv run eval.py eval.ckpt=<path> eval.render=false
 ```
 
-Only the Q network (online network) weights are loaded from the checkpoint; the replay buffer, optimizer and target network are not created. Episodes are played with an epsilon-greedy policy (epsilon = 0.05) and rendered to the screen.
+Only the Q network (online network) weights are loaded from the checkpoint; the replay buffer, optimizer and target network are not created. Episodes are played with an epsilon-greedy policy (epsilon = 0.05) and rendered to the screen unless `eval.render=false`. The score of each episode and their mean ± std are printed.
 
 The other settings (`env.*`, `seed`, `device`) come from the current config, not from the run. If a run used different env settings, pass them on the CLI (e.g. `env.repeat_action_probability=0.25`).
 
@@ -117,7 +120,7 @@ The other settings (`env.*`, `seed`, `device`) come from the current config, not
 | Path | Content |
 |------|---------|
 | `config/config.yaml` | Base config for training. `agent.name` selects `dqn` / `target_dqn` / `double_dqn`. `loss` and `optimizer` are built with `hydra.utils.instantiate` (`_target_` is the class). Paper values are noted in comments |
-| `config/eval.yaml` | Evaluation settings (`eval.ckpt`, `eval.episode`) on top of the base config |
+| `config/eval.yaml` | Evaluation settings (`eval.ckpt`, `eval.episode`, `eval.render`) on top of the base config |
 | `config/config.yaml` → `wandb` | wandb `project`, `entity` and `mode` (`online` / `offline` / `disabled`) |
 
 To print the resolved config without running: `uv run train.py --cfg job`
