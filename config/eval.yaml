@@ -8,7 +8,7 @@ eval:
   # e.g. eval.ckpt=outputs/double_dqn/2026-11-13_15-00-00
   ckpt: ???
   episode: 10
-  render: true  # false: no window (e.g. on a server), only the scores are printed
+  render: false  # true: show the game in a window (needs a display; fails on a server)
 
 # evaluation saves nothing: do not create an output directory
 hydra:
