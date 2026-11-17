@@ -54,7 +54,7 @@ def make_env(
         env = RecordVideo(
             env,
             video_folder=video_folder,
-            episode_trigger=lambda e: True,
+            episode_trigger=lambda _: True,
             name_prefix=name_prefix,
         )
 
