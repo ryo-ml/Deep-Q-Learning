@@ -119,7 +119,7 @@ The other settings (`env.*`, `seed`, `device`) come from the current config, not
 
 ## Plotting
 
-The same metrics are also kept in each checkpoint (`history`), so the training curves can be plotted without wandb:
+The same metrics are also written to `metrics.jsonl` in the run directory (one JSON object per line, appended as training goes), so the training curves can be plotted without wandb:
 
 ```bash
 # one run: figures are saved under <run>/figures
@@ -129,7 +129,7 @@ uv run plot.py outputs/double_dqn/2026-11-13_15-00-00
 uv run plot.py outputs/dqn/<run> outputs/double_dqn/<run> --out figures/compare
 ```
 
-A run directory uses its latest checkpoint; a checkpoint file can also be given. The plots are `episode_return` (moving average over 100 episodes), `valid_score_mean` (± std), `q_value` and `loss`.
+The plots use the same names as wandb: `train/episode_return` (moving average over 100 episodes), `valid/score_mean` (± std), `train/q_value`, `train/loss` and `train/epsilon`.
 
 ## Configuration
 
@@ -153,7 +153,8 @@ outputs/<agent>/<YYYY-MM-DD_HH-MM-SS>/
 │   ├── config.yaml      # resolved config used for the run
 │   └── overrides.yaml   # CLI overrides
 ├── train.log
-├── checkpoints/         # steps_<N>.pth (model weights, optimizer state, history)
+├── metrics.jsonl        # logged metrics (the same as wandb, except videos)
+├── checkpoints/         # steps_<N>.pth (model weights, optimizer state)
 ├── figures/             # training curves (created by plot.py)
 ├── videos/              # first validation episode at each validation
 └── wandb/               # wandb's local files for the run (unless wandb.mode=disabled)

@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 def plot_metric(
-    histories: dict[str, list[dict]],
+    runs: dict[str, list[dict]],
     key: str,
     path: Path,
     smooth: int = 1,
@@ -13,13 +13,13 @@ def plot_metric(
     Plots `key` against steps, one line per run.
 
     Args:
-        histories: run label -> `Trainer.history`
+        runs: run label -> records of its metrics.jsonl
         smooth: moving-average window; with smooth > 1, the raw values are drawn faintly behind
-        std_key: draws mean ± std as a band (e.g. valid_score_std)
+        std_key: draws mean ± std as a band (e.g. valid/score_std)
     """
     fig, ax = plt.subplots(figsize=(10, 5))
-    for label, history in histories.items():
-        entries = [h for h in history if key in h]
+    for label, records in runs.items():
+        entries = [r for r in records if key in r]
         if not entries:
             continue
         steps = np.array([h['steps'] for h in entries])

@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 from collections import deque
 from tqdm import tqdm
@@ -30,9 +31,7 @@ class Trainer:
         self.output_dir = Path(output_dir)
 
         self.steps = 0
-        self.history = []
-        # each entry has 'steps' and some of the metrics (plotted by plot.py):
-        # [{'steps': 1000, 'loss': 0.12, 'q_value': 0.56}, {'steps': 1043, 'episode_return': 3.0}, ...]
+        self.metrics_path = self.output_dir / 'metrics.jsonl'  # what _log logs, one JSON object per line (read by plot.py)
 
         # logging
         logger.info(' Initialization '.center(40, '='))
@@ -53,13 +52,11 @@ class Trainer:
 
         logger.info(' Initialization done '.center(40, '='))
 
-    def _log_metric(self, steps: int, **metrics):
-        """
-        Updates `self.history`
-        """
-        log_dict = {'steps': steps}
-        log_dict.update(metrics)
-        self.history.append(log_dict)
+    def _log(self, metrics: dict[str, float]) -> None:
+        """Logs to wandb and appends the same values to `metrics.jsonl`."""
+        wandb.log(metrics, step=self.steps)
+        with open(self.metrics_path, 'a') as f:  # appended per call: kept even if training crashes
+            f.write(json.dumps({'steps': self.steps, **metrics}) + '\n')
 
     def train(self) -> None:
         """
@@ -109,8 +106,7 @@ class Trainer:
             self.steps += 1
             if done:
                 # the first episode started in warmup: its return includes the rewards earned there
-                self._log_metric(self.steps, episode_return=episode_return)
-                wandb.log({'train/episode_return': episode_return}, step=self.steps)
+                self._log({'train/episode_return': episode_return})
                 return_interval.append(episode_return)
                 episode_return = 0.0
                 obs, _ = self.train_env.reset()
@@ -124,24 +120,22 @@ class Trainer:
 
             # log
             if self.steps % self.cfg.train.log_interval == 0:
-                loss_mean = np.mean(loss_interval)
+                loss_mean = float(np.mean(loss_interval))
                 loss_interval = []
+                return_mean = f'{np.mean(return_interval):.1f}' if return_interval else '-'  # no episode ended in this interval
+                return_interval = []
 
                 # Q values for fixed set
                 with torch.no_grad():
                     q_values = torch.max(self.agent.online_model(self.fixed_states), dim=-1).values # (n_fixed_states,)
                     q_values_mean = q_values.mean().item()
 
-                self._log_metric(self.steps, loss=loss_mean, q_value=q_values_mean) # update history
-                wandb.log({
+                self._log({
                     'train/loss': loss_mean,
                     'train/q_value': q_values_mean,
                     'train/epsilon': self.agent.epsilon,
-                }, step=self.steps)
-
-                return_mean = f'{np.mean(return_interval):.1f}' if return_interval else '-'  # no episode ended in this interval
-                return_interval = []
-                logger.info(f'Step {self.steps} | Q: {q_values_mean:.4f} | Loss: {loss_mean:.4f} | Return: {return_mean} | Epsilon: {self.agent.epsilon:.4f}')
+                })
+                logger.info(f'Step {self.steps} | Loss: {loss_mean:.4f} | Q: {q_values_mean:.4f} | Return: {return_mean} | Epsilon: {self.agent.epsilon:.4f}')
 
             # valid
             if self.steps % self.cfg.train.valid_interval == 0:
@@ -172,20 +166,22 @@ class Trainer:
             ]
         finally:
             val_env.close()  # RecordVideo writes the video file on close
-        score_mean, score_std = float(np.mean(scores)), float(np.std(scores))
-        logger.info(f'Valid score: {score_mean:.1f} ± {score_std:.1f} over {len(scores)} episodes')
-        self._log_metric(self.steps, valid_score_mean=score_mean, valid_score_std=score_std)
 
-        metrics = {'valid/score_mean': score_mean, 'valid/score_std': score_std}
+        score_mean, score_std = float(np.mean(scores)), float(np.std(scores))
+        self._log({
+            'valid/score_mean': score_mean,
+            'valid/score_std': score_std,
+        })
+        logger.info(f'Valid score: {score_mean:.1f} ± {score_std:.1f} over {len(scores)} episodes')
+
+        # sent to wandb only: a video cannot go into metrics.jsonl
         video = video_dir / f'{self.steps}-episode-0.mp4'
         if video.exists():
-            metrics['valid/video'] = wandb.Video(str(video), format='mp4')
-        wandb.log(metrics, step=self.steps)
+            wandb.log({'valid/video': wandb.Video(str(video), format='mp4')}, step=self.steps)
 
     def save(self) -> None:
         d = {
             'steps': self.steps,
-            'history': self.history,
             'agent': self.agent.state_dict(),
         }
 
@@ -198,7 +194,6 @@ class Trainer:
     def load(self, path: Path):
         d = torch.load(path, map_location=self.cfg.device, weights_only=False)
         self.steps = d['steps']
-        self.history = d['history']
         self.agent.load_state_dict(d['agent'])
 
         logger.info(f'Checkpoint loaded from {path} at step {self.steps}')
