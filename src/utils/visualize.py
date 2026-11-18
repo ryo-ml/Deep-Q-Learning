@@ -1,32 +1,46 @@
 from pathlib import Path
 import matplotlib.pyplot as plt
+import numpy as np
 
-from ..utils.logger import get_logger
+def plot_metric(
+    histories: dict[str, list[dict]],
+    key: str,
+    path: Path,
+    smooth: int = 1,
+    std_key: str | None = None,
+) -> None:
+    """
+    Plots `key` against steps, one line per run.
 
-logger = get_logger(__name__)
+    Args:
+        histories: run label -> `Trainer.history`
+        smooth: moving-average window; with smooth > 1, the raw values are drawn faintly behind
+        std_key: draws mean ± std as a band (e.g. valid_score_std)
+    """
+    fig, ax = plt.subplots(figsize=(10, 5))
+    for label, history in histories.items():
+        entries = [h for h in history if key in h]
+        if not entries:
+            continue
+        steps = np.array([h['steps'] for h in entries])
+        values = np.array([h[key] for h in entries])
 
-def plot_loss(steps: list, loss: list, path: Path) -> None:
-    fig, ax = plt.subplots(1, 1, figsize=(10, 5))
-    ax.plot(steps, loss)
-    ax.set_title('Loss')
+        if smooth > 1 and len(values) >= smooth:
+            line, = ax.plot(steps, values, alpha=0.2)
+            smoothed = np.convolve(values, np.ones(smooth) / smooth, mode='valid')
+            ax.plot(steps[smooth - 1:], smoothed, color=line.get_color(), label=label)
+        else:
+            line, = ax.plot(steps, values, label=label)
+
+        if std_key is not None:
+            std = np.array([h[std_key] for h in entries])
+            ax.fill_between(steps, values - std, values + std, color=line.get_color(), alpha=0.2)
+
+    ax.set_title(key if smooth <= 1 else f'{key} (moving average over {smooth})')
     ax.set_xlabel('steps')
-    ax.set_ylabel('loss')
+    ax.set_ylabel(key)
     ax.grid(True)
+    ax.legend()
 
-    fig.savefig(path, dpi=400)
-
+    fig.savefig(path, dpi=200)
     plt.close(fig)
-    logger.info(f'Loss plot saved to {path}')
-
-def plot_q_value(steps: list, q_value: list, path: Path) -> None:
-    fig, ax = plt.subplots(1, 1, figsize=(10, 5))
-    ax.plot(steps, q_value)
-    ax.set_title('Q value')
-    ax.set_xlabel('steps')
-    ax.set_ylabel('Q')
-    ax.grid(True)
-
-    fig.savefig(path, dpi=400)
-
-    plt.close(fig)
-    logger.info(f'Q value plot saved to {path}')

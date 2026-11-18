@@ -10,7 +10,6 @@ import wandb
 from ..env.breakout import make_env
 from ..agents.dqn_agent import DQNAgent
 from .rollout import run_episode
-from ..utils.visualize import plot_loss, plot_q_value
 
 from ..utils.logger import get_logger
 
@@ -32,7 +31,7 @@ class Trainer:
 
         self.steps = 0
         self.history = []
-        # each entry has 'steps' and some of the metrics:
+        # each entry has 'steps' and some of the metrics (plotted by plot.py):
         # [{'steps': 1000, 'loss': 0.12, 'q_value': 0.56}, {'steps': 1043, 'episode_return': 3.0}, ...]
 
         # logging
@@ -153,22 +152,6 @@ class Trainer:
                 self.save()
 
         logger.info('Training has ended')
-
-        self.plot_results()
-
-    def plot_results(self):
-        fig_dir = self.output_dir / 'figures'
-        fig_dir.mkdir(parents=True, exist_ok=True)
-
-        # plot loss and q values
-        loss_steps = [h['steps'] for h in self.history if 'loss' in h]
-        loss = [h['loss'] for h in self.history if 'loss' in h]
-        q_value_steps = [h['steps'] for h in self.history if 'q_value' in h]
-        q_values = [h['q_value'] for h in self.history if 'q_value' in h]
-        plot_loss(loss_steps, loss, fig_dir / f'loss_{self.steps}.svg')
-        plot_q_value(q_value_steps, q_values, fig_dir / f'q_value_{self.steps}.svg')
-
-        logger.info(f'Figures saved under {fig_dir}')
 
     def valid(self, render_mode: str = 'rgb_array') -> None:
         video_dir = self.output_dir / 'videos'

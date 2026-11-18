@@ -31,6 +31,7 @@ Dependencies are defined in `pyproject.toml` and pinned in `uv.lock`.
 ├── uv.lock
 ├── train.py                      # training entry point
 ├── eval.py                       # evaluation entry point
+├── plot.py                       # training curves from checkpoints
 ├── scripts/
 │   ├── play.py                   # play Breakout with the keyboard
 │   └── random_action.py          # run a random policy
@@ -48,10 +49,11 @@ Dependencies are defined in `pyproject.toml` and pinned in `uv.lock`.
     │   ├── trainer.py            # Trainer (warmup, training loop, validation, checkpoints)
     │   └── rollout.py            # plays one episode (validation and evaluation)
     └── utils/
+        ├── checkpoint.py         # finds the latest checkpoint of a run
         ├── logger.py
         ├── seed.py
         ├── tracking.py           # wandb run setup
-        └── visualize.py          # loss and q value plots
+        └── visualize.py          # plotting functions used by plot.py
 ```
 
 ## Training
@@ -115,6 +117,20 @@ Only the Q network (online network) weights are loaded from the checkpoint; the 
 
 The other settings (`env.*`, `seed`, `device`) come from the current config, not from the run. If a run used different env settings, pass them on the CLI (e.g. `env.repeat_action_probability=0.25`).
 
+## Plotting
+
+The same metrics are also kept in each checkpoint (`history`), so the training curves can be plotted without wandb:
+
+```bash
+# one run: figures are saved under <run>/figures
+uv run plot.py outputs/double_dqn/2026-11-13_15-00-00
+
+# several runs on the same axes (e.g. to compare agents)
+uv run plot.py outputs/dqn/<run> outputs/double_dqn/<run> --out figures/compare
+```
+
+A run directory uses its latest checkpoint; a checkpoint file can also be given. The plots are `episode_return` (moving average over 100 episodes), `valid_score_mean` (± std), `q_value` and `loss`.
+
 ## Configuration
 
 | Path | Content |
@@ -138,7 +154,7 @@ outputs/<agent>/<YYYY-MM-DD_HH-MM-SS>/
 │   └── overrides.yaml   # CLI overrides
 ├── train.log
 ├── checkpoints/         # steps_<N>.pth (model weights, optimizer state, history)
-├── figures/             # loss and q value plots
+├── figures/             # training curves (created by plot.py)
 ├── videos/              # first validation episode at each validation
 └── wandb/               # wandb's local files for the run (unless wandb.mode=disabled)
 ```
