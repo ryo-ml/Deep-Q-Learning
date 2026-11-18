@@ -108,7 +108,7 @@ class Trainer:
             episode_return += reward
             self.steps += 1
             if done:
-                # the first episode includes the steps taken in warmup
+                # the first episode started in warmup: its return includes the rewards earned there
                 self._log_metric(self.steps, episode_return=episode_return)
                 wandb.log({'train/episode_return': episode_return}, step=self.steps)
                 return_interval.append(episode_return)
