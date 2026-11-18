@@ -141,7 +141,7 @@ The plots use the same names as wandb: `train/episode_return` (moving average ov
 
 To print the resolved config without running: `uv run train.py --cfg job`
 
-`seed` fixes Python, NumPy, PyTorch and the env's action space (all random actions are sampled from it), so two runs with the same config give identical results on CPU. On GPU (CUDA / MPS) small differences can remain.
+`seed` fixes Python, NumPy, PyTorch, the env's action space (all random actions are sampled from it) and the env itself (the number of no-op actions at each reset), so two runs with the same config give identical results on CPU. On GPU (CUDA / MPS) small differences can remain.
 
 ## Outputs
 
