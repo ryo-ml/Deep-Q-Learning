@@ -74,7 +74,7 @@ uv run train.py -m agent.name=dqn,target_dqn,double_dqn
 
 ### Experiment tracking
 
-Training metrics are logged to [Weights & Biases](https://wandb.ai/): `train/loss`, `train/q_value` and `train/epsilon` every `train.log_interval` steps, and `valid/score_mean` / `valid/score_std` over `train.valid_episodes` episodes with the video of the first one every `train.valid_interval` steps. The full config (except the `wandb` section) is logged as the run's config.
+Training metrics are logged to [Weights & Biases](https://wandb.ai/): `train/episode_return` (raw score, not clipped) at the end of each training episode, `train/loss`, `train/q_value` and `train/epsilon` every `train.log_interval` steps, and `valid/score_mean` / `valid/score_std` over `train.valid_episodes` episodes with the video of the first one every `train.valid_interval` steps. The full config (except the `wandb` section) is logged as the run's config.
 
 Put your API key in a `.env` file at the repository root (gitignored):
 

@@ -32,12 +32,8 @@ class Trainer:
 
         self.steps = 0
         self.history = []
-        # History structure:
-        # loss and q_value can be omitted
-        # self.history = [
-        #     {'steps': 1000, 'loss': 0.1234, 'q_value': 0.5678},
-        #     ...
-        # ]
+        # each entry has 'steps' and some of the metrics:
+        # [{'steps': 1000, 'loss': 0.12, 'q_value': 0.56}, {'steps': 1043, 'episode_return': 3.0}, ...]
 
         # logging
         logger.info(' Initialization '.center(40, '='))
@@ -74,6 +70,7 @@ class Trainer:
         """
         obs, _ = self.train_env.reset(seed=self.cfg.seed)
         frames = deque([obs] * 4, maxlen=4)
+        episode_return = 0.0  # raw score (the replay buffer stores the clipped reward)
 
         # warmup: random actions, only fills the replay buffer
         logger.info('Warmup started')
@@ -87,7 +84,9 @@ class Trainer:
             next_obs, reward, terminated, truncated, _ = self.train_env.step(action)
             done = terminated or truncated
             self.agent.replay_buffer.store(obs, action, reward, done)
+            episode_return += reward
             if done:
+                episode_return = 0.0  # warmup episodes are not logged
                 obs, _ = self.train_env.reset()
                 frames = deque([obs] * 4, maxlen=4)
             else:
@@ -99,7 +98,7 @@ class Trainer:
 
         # train: continues the episode left by warmup (obs / frames are carried over)
         logger.info('Training started')
-        loss_interval = []
+        loss_interval, return_interval = [], []
         for _ in tqdm(range(self.cfg.train.total_steps)):
             state = torch.from_numpy(np.stack(frames)).unsqueeze(0).to(self.cfg.device)  # (1, 4, 84, 84)
             action = self.agent.select_action(state)
@@ -107,14 +106,20 @@ class Trainer:
             next_obs, reward, terminated, truncated, _ = self.train_env.step(action)
             done = terminated or truncated
             self.agent.replay_buffer.store(obs, action, reward, done)
+            episode_return += reward
+            self.steps += 1
             if done:
+                # the first episode includes the steps taken in warmup
+                self._log_metric(self.steps, episode_return=episode_return)
+                wandb.log({'train/episode_return': episode_return}, step=self.steps)
+                return_interval.append(episode_return)
+                episode_return = 0.0
                 obs, _ = self.train_env.reset()
                 frames = deque([obs] * 4, maxlen=4)
             else:
                 obs = next_obs
                 frames.append(obs)
 
-            self.steps += 1
             if self.steps % self.cfg.train.update_interval == 0:
                 loss_interval.append(self.agent.update())
 
@@ -135,7 +140,9 @@ class Trainer:
                     'train/epsilon': self.agent.epsilon,
                 }, step=self.steps)
 
-                logger.info(f'Step {self.steps} | Q: {q_values_mean:.4f} | Loss: {loss_mean:.4f} | Epsilon: {self.agent.epsilon:.4f}')
+                return_mean = f'{np.mean(return_interval):.1f}' if return_interval else '-'  # no episode ended in this interval
+                return_interval = []
+                logger.info(f'Step {self.steps} | Q: {q_values_mean:.4f} | Loss: {loss_mean:.4f} | Return: {return_mean} | Epsilon: {self.agent.epsilon:.4f}')
 
             # valid
             if self.steps % self.cfg.train.valid_interval == 0:
@@ -184,6 +191,7 @@ class Trainer:
             val_env.close()  # RecordVideo writes the video file on close
         score_mean, score_std = float(np.mean(scores)), float(np.std(scores))
         logger.info(f'Valid score: {score_mean:.1f} ± {score_std:.1f} over {len(scores)} episodes')
+        self._log_metric(self.steps, valid_score_mean=score_mean, valid_score_std=score_std)
 
         metrics = {'valid/score_mean': score_mean, 'valid/score_std': score_std}
         video = video_dir / f'{self.steps}-episode-0.mp4'
