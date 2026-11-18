@@ -192,7 +192,7 @@ class Trainer:
         logger.info(f'Checkpoint saved: {save_path}')
 
     def load(self, path: Path):
-        d = torch.load(path, map_location=self.cfg.device, weights_only=False)
+        d = torch.load(path, map_location=self.cfg.device, weights_only=True)
         self.steps = d['steps']
         self.agent.load_state_dict(d['agent'])
 

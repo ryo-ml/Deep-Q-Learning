@@ -19,7 +19,7 @@ def load_model(ckpt: Path, n_actions: int, device: str) -> DQN:
     Builds the Q network and loads only its weights from a training checkpoint
     (the replay buffer, optimizer and target network are not created).
     """
-    state = torch.load(ckpt, map_location=device, weights_only=False)
+    state = torch.load(ckpt, map_location=device, weights_only=True)
     model = DQN(n_actions).to(device)
     model.load_state_dict(state['agent']['online_model'])
     model.eval()
