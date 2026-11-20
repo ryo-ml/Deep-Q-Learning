@@ -63,8 +63,13 @@ class Trainer:
         Fills the replay buffer with random actions for `warmup_steps` steps, then trains
         for `total_steps` steps (`self.steps` counts only these). The episode in progress at
         the end of warmup continues into training (no reset at the boundary).
+
+        As in the paper, losing a life is stored as `done` in the replay buffer (the TD target
+        is cut there and frame stacks start over), but the game goes on: the env is reset only
+        at game over, so `train/episode_return` is the score of a whole game.
         """
-        obs, _ = self.train_env.reset(seed=self.cfg.seed)
+        obs, info = self.train_env.reset(seed=self.cfg.seed)
+        lives = info['lives']
         frames = deque([obs] * 4, maxlen=4)
         episode_return = 0.0  # raw score (the replay buffer stores the clipped reward)
 
@@ -77,13 +82,20 @@ class Trainer:
 
             action = self.train_env.action_space.sample()
             # step / store / reset: keep in sync with the train loop below
-            next_obs, reward, terminated, truncated, _ = self.train_env.step(action)
+            next_obs, reward, terminated, truncated, info = self.train_env.step(action)
             done = terminated or truncated
-            self.agent.replay_buffer.store(obs, action, reward, done)
+            life_lost = info['lives'] < lives
+            lives = info['lives']
+            self.agent.replay_buffer.store(obs, action, reward, done or life_lost)
             episode_return += reward
             if done:
                 episode_return = 0.0  # warmup episodes are not logged
-                obs, _ = self.train_env.reset()
+                obs, info = self.train_env.reset()
+                lives = info['lives']
+                frames = deque([obs] * 4, maxlen=4)
+            elif life_lost:
+                # the game goes on; the frame stack starts over, as the replay buffer's does after a done
+                obs = next_obs
                 frames = deque([obs] * 4, maxlen=4)
             else:
                 obs = next_obs
@@ -99,9 +111,11 @@ class Trainer:
             state = torch.from_numpy(np.stack(frames)).unsqueeze(0).to(self.cfg.device)  # (1, 4, 84, 84)
             action = self.agent.select_action(state)
             # step / store / reset: keep in sync with the warmup loop above
-            next_obs, reward, terminated, truncated, _ = self.train_env.step(action)
+            next_obs, reward, terminated, truncated, info = self.train_env.step(action)
             done = terminated or truncated
-            self.agent.replay_buffer.store(obs, action, reward, done)
+            life_lost = info['lives'] < lives
+            lives = info['lives']
+            self.agent.replay_buffer.store(obs, action, reward, done or life_lost)
             episode_return += reward
             self.steps += 1
             if done:
@@ -109,7 +123,12 @@ class Trainer:
                 self._log({'train/episode_return': episode_return})
                 return_interval.append(episode_return)
                 episode_return = 0.0
-                obs, _ = self.train_env.reset()
+                obs, info = self.train_env.reset()
+                lives = info['lives']
+                frames = deque([obs] * 4, maxlen=4)
+            elif life_lost:
+                # the game goes on; the frame stack starts over, as the replay buffer's does after a done
+                obs = next_obs
                 frames = deque([obs] * 4, maxlen=4)
             else:
                 obs = next_obs

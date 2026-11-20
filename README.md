@@ -141,6 +141,8 @@ The plots use the same names as wandb: `train/episode_return` (moving average ov
 
 To print the resolved config without running: `uv run train.py --cfg job`
 
+As in the paper, losing a life is treated as the end of an episode for learning only: it is stored as `done` in the replay buffer, so the TD target is `r` there and the frame stack starts over, but the game is not reset. The env is reset only at game over, so `train/episode_return` and the validation / evaluation scores are the scores of whole games. This is not gymnasium's `AtariPreprocessing(terminal_on_life_loss=True)` (left `False` in `make_env`), which restarts the whole game after each lost life.
+
 `seed` fixes Python, NumPy, PyTorch, the env's action space (all random actions are sampled from it) and the env itself (the number of no-op actions at each reset), so two runs with the same config give identical results on CPU. On GPU (CUDA / MPS) small differences can remain.
 
 ## Outputs
